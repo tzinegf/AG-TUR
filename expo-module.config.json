@@ -1,0 +1,15 @@
+{
+  "ios": {
+    "infoPlist": {}
+  },
+  "android": {},
+  "expo": {
+    "install": {
+      "exclude": [
+        "expo-dev-client",
+        "expo-dev-launcher",
+        "expo-updates"
+      ]
+    }
+  }
+}
