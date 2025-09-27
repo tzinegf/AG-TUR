@@ -13,7 +13,10 @@ export default function AdminLayout() {
 
   useEffect(() => {
     if (!loading && !isAdminAuthenticated) {
-      router.replace('/admin/login');
+      // Usar setTimeout para garantir que o redirecionamento aconteça após o render
+      setTimeout(() => {
+        router.replace('/admin/login');
+      }, 100);
     }
   }, [isAdminAuthenticated, loading]);
 
@@ -44,7 +47,6 @@ export default function AdminLayout() {
       <Stack.Screen name="buses" options={{ title: 'Gerenciar Ônibus' }} />
       <Stack.Screen name="bookings" options={{ title: 'Gerenciar Reservas' }} />
       <Stack.Screen name="users" options={{ title: 'Gerenciar Usuários' }} />
-      <Stack.Screen name="reports" options={{ title: 'Relatórios' }} />
     </Stack>
   );
 }

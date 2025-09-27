@@ -260,30 +260,34 @@ export default function AdminBookings() {
         <View style={styles.filtersRow}>
           <View style={styles.filterItem}>
             <Text style={styles.filterLabel}>Status:</Text>
-            <Picker
-              selectedValue={filterStatus}
-              onValueChange={setFilterStatus}
-              style={styles.picker}
-            >
-              <Picker.Item label="Todos" value="all" />
-              <Picker.Item label="Confirmadas" value="confirmed" />
-              <Picker.Item label="Pendentes" value="pending" />
-              <Picker.Item label="Canceladas" value="cancelled" />
-            </Picker>
+            <View style={styles.filterPickerContainer}>
+              <Picker
+                selectedValue={filterStatus}
+                onValueChange={setFilterStatus}
+                style={styles.filterPicker}
+              >
+                <Picker.Item label="Todos" value="all" color="#1F2937" />
+                <Picker.Item label="Confirmadas" value="confirmed" color="#1F2937" />
+                <Picker.Item label="Pendentes" value="pending" color="#1F2937" />
+                <Picker.Item label="Canceladas" value="cancelled" color="#1F2937" />
+              </Picker>
+            </View>
           </View>
           
           <View style={styles.filterItem}>
             <Text style={styles.filterLabel}>Pagamento:</Text>
-            <Picker
-              selectedValue={filterPayment}
-              onValueChange={setFilterPayment}
-              style={styles.picker}
-            >
-              <Picker.Item label="Todos" value="all" />
-              <Picker.Item label="Pago" value="paid" />
-              <Picker.Item label="Pendente" value="pending" />
-              <Picker.Item label="Reembolsado" value="refunded" />
-            </Picker>
+            <View style={styles.filterPickerContainer}>
+              <Picker
+                selectedValue={filterPayment}
+                onValueChange={setFilterPayment}
+                style={styles.filterPicker}
+              >
+                <Picker.Item label="Todos" value="all" color="#1F2937" />
+                <Picker.Item label="Pago" value="paid" color="#1F2937" />
+                <Picker.Item label="Pendente" value="pending" color="#1F2937" />
+                <Picker.Item label="Reembolsado" value="refunded" color="#1F2937" />
+              </Picker>
+            </View>
           </View>
         </View>
       </View>
@@ -511,6 +515,19 @@ const styles = StyleSheet.create({
   picker: {
     flex: 1,
     height: 40,
+  },
+  filterPickerContainer: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    minHeight: 50,
+  },
+  filterPicker: {
+    flex: 1,
+    height: 50,
+    color: '#1F2937',
   },
   listContainer: {
     padding: 20,

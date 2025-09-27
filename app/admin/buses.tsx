@@ -97,8 +97,8 @@ export default function AdminBuses() {
     manufacturer: '',
     year: new Date().getFullYear(),
     seats: 42,
-    type: 'convencional' as 'convencional' | 'executivo' | 'leito',
-    status: 'active' as 'active' | 'maintenance' | 'inactive',
+    type: '' as '' | 'convencional' | 'executivo' | 'leito',
+    status: '' as '' | 'active' | 'maintenance' | 'inactive',
     amenities: [] as string[],
     lastMaintenance: '',
     nextMaintenance: '',
@@ -339,30 +339,34 @@ export default function AdminBuses() {
         <View style={styles.filtersRow}>
           <View style={styles.filterItem}>
             <Text style={styles.filterLabel}>Tipo:</Text>
-            <Picker
-              selectedValue={filterType}
-              onValueChange={setFilterType}
-              style={styles.picker}
-            >
-              <Picker.Item label="Todos" value="all" />
-              <Picker.Item label="Convencional" value="convencional" />
-              <Picker.Item label="Executivo" value="executivo" />
-              <Picker.Item label="Leito" value="leito" />
-            </Picker>
+            <View style={styles.filterPickerContainer}>
+              <Picker
+                selectedValue={filterType}
+                onValueChange={setFilterType}
+                style={styles.filterPicker}
+              >
+                <Picker.Item label="Todos" value="all" color="#1F2937" />
+                <Picker.Item label="Convencional" value="convencional" color="#1F2937" />
+                <Picker.Item label="Executivo" value="executivo" color="#1F2937" />
+                <Picker.Item label="Leito" value="leito" color="#1F2937" />
+              </Picker>
+            </View>
           </View>
           
           <View style={styles.filterItem}>
             <Text style={styles.filterLabel}>Status:</Text>
-            <Picker
-              selectedValue={filterStatus}
-              onValueChange={setFilterStatus}
-              style={styles.picker}
-            >
-              <Picker.Item label="Todos" value="all" />
-              <Picker.Item label="Ativo" value="active" />
-              <Picker.Item label="Manutenção" value="maintenance" />
-              <Picker.Item label="Inativo" value="inactive" />
-            </Picker>
+            <View style={styles.filterPickerContainer}>
+              <Picker
+                selectedValue={filterStatus}
+                onValueChange={setFilterStatus}
+                style={styles.filterPicker}
+              >
+                <Picker.Item label="Todos" value="all" color="#1F2937" />
+                <Picker.Item label="Ativo" value="active" color="#1F2937" />
+                <Picker.Item label="Manutenção" value="maintenance" color="#1F2937" />
+                <Picker.Item label="Inativo" value="inactive" color="#1F2937" />
+              </Picker>
+            </View>
           </View>
         </View>
       </View>
@@ -466,9 +470,10 @@ export default function AdminBuses() {
                       onValueChange={(value) => setFormData({ ...formData, type: value })}
                       style={styles.formPicker}
                     >
-                      <Picker.Item label="Convencional" value="convencional" />
-                      <Picker.Item label="Executivo" value="executivo" />
-                      <Picker.Item label="Leito" value="leito" />
+                      <Picker.Item label="Selecione o tipo..." value="" color="#9CA3AF" />
+                      <Picker.Item label="Convencional" value="convencional" color="#1F2937" />
+                      <Picker.Item label="Executivo" value="executivo" color="#1F2937" />
+                      <Picker.Item label="Leito" value="leito" color="#1F2937" />
                     </Picker>
                   </View>
                 </View>
@@ -481,9 +486,10 @@ export default function AdminBuses() {
                       onValueChange={(value) => setFormData({ ...formData, status: value })}
                       style={styles.formPicker}
                     >
-                      <Picker.Item label="Ativo" value="active" />
-                      <Picker.Item label="Em Manutenção" value="maintenance" />
-                      <Picker.Item label="Inativo" value="inactive" />
+                      <Picker.Item label="Selecione o status..." value="" color="#9CA3AF" />
+                      <Picker.Item label="Ativo" value="active" color="#1F2937" />
+                      <Picker.Item label="Em Manutenção" value="maintenance" color="#1F2937" />
+                      <Picker.Item label="Inativo" value="inactive" color="#1F2937" />
                     </Picker>
                   </View>
                 </View>
@@ -647,6 +653,19 @@ const styles = StyleSheet.create({
   picker: {
     flex: 1,
     height: 40,
+  },
+  filterPickerContainer: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    minHeight: 50,
+  },
+  filterPicker: {
+    height: 50,
+    color: '#1F2937',
   },
   listContainer: {
     padding: 20,
@@ -841,9 +860,10 @@ const styles = StyleSheet.create({
     borderColor: '#D1D5DB',
     borderRadius: 12,
     overflow: 'hidden',
+    minHeight: 56,
   },
   formPicker: {
-    height: 50,
+    height: 56,
   },
   amenitiesGrid: {
     flexDirection: 'row',

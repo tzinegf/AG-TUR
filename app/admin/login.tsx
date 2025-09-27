@@ -22,11 +22,20 @@ export default function AdminLoginScreen() {
       const success = await authenticateAdmin(email, password);
       
       if (success) {
+        // Limpar os campos de entrada após login bem-sucedido
+        setEmail('');
+        setPassword('');
         router.replace('/admin/dashboard');
       } else {
+        // Limpar os campos de entrada após falha no login
+        setEmail('');
+        setPassword('');
         Alert.alert('Erro', 'Credenciais inválidas. Verifique seu email e senha.');
       }
     } catch (error) {
+      // Limpar os campos de entrada em caso de erro
+      setEmail('');
+      setPassword('');
       Alert.alert('Erro', 'Falha no login. Tente novamente.');
     }
   };

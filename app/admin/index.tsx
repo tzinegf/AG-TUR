@@ -12,11 +12,14 @@ export default function AdminIndex() {
 
   useEffect(() => {
     if (!loading) {
-      if (isAdminAuthenticated) {
-        router.replace('/admin/dashboard');
-      } else {
-        router.replace('/admin/login');
-      }
+      // Usar setTimeout para garantir que o redirecionamento aconteça após o render
+      setTimeout(() => {
+        if (isAdminAuthenticated) {
+          router.replace('/admin/dashboard');
+        } else {
+          router.replace('/admin/login');
+        }
+      }, 100);
     }
   }, [isAdminAuthenticated, loading]);
 

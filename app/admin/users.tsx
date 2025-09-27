@@ -392,31 +392,35 @@ export default function AdminUsers() {
         <View style={styles.filtersRow}>
           <View style={styles.filterItem}>
             <Text style={styles.filterLabel}>Função:</Text>
-            <Picker
-              selectedValue={filterRole}
-              onValueChange={setFilterRole}
-              style={styles.picker}
-            >
-              <Picker.Item label="Todos" value="all" />
-              <Picker.Item label="Usuário" value="user" />
-              <Picker.Item label="Administrador" value="admin" />
-              <Picker.Item label="Gerente" value="manager" />
-              <Picker.Item label="Motorista" value="driver" />
-            </Picker>
+            <View style={styles.filterPickerContainer}>
+              <Picker
+                selectedValue={filterRole}
+                onValueChange={setFilterRole}
+                style={styles.filterPicker}
+              >
+                <Picker.Item label="Todos" value="all" color="#9CA3AF" />
+                <Picker.Item label="Usuário" value="user" color="#1F2937" />
+                <Picker.Item label="Administrador" value="admin" color="#1F2937" />
+                <Picker.Item label="Gerente" value="manager" color="#1F2937" />
+                <Picker.Item label="Motorista" value="driver" color="#1F2937" />
+              </Picker>
+            </View>
           </View>
           
           <View style={styles.filterItem}>
             <Text style={styles.filterLabel}>Status:</Text>
-            <Picker
-              selectedValue={filterStatus}
-              onValueChange={setFilterStatus}
-              style={styles.picker}
-            >
-              <Picker.Item label="Todos" value="all" />
-              <Picker.Item label="Ativo" value="active" />
-              <Picker.Item label="Inativo" value="inactive" />
-              <Picker.Item label="Suspenso" value="suspended" />
-            </Picker>
+            <View style={styles.filterPickerContainer}>
+              <Picker
+                selectedValue={filterStatus}
+                onValueChange={setFilterStatus}
+                style={styles.filterPicker}
+              >
+                <Picker.Item label="Todos" value="all" color="#9CA3AF" />
+                <Picker.Item label="Ativo" value="active" color="#1F2937" />
+                <Picker.Item label="Inativo" value="inactive" color="#1F2937" />
+                <Picker.Item label="Suspenso" value="suspended" color="#1F2937" />
+              </Picker>
+            </View>
           </View>
         </View>
       </View>
@@ -506,10 +510,10 @@ export default function AdminUsers() {
                     onValueChange={(value) => setFormData({ ...formData, role: value })}
                     style={styles.formPicker}
                   >
-                    <Picker.Item label="Usuário" value="user" />
-                    <Picker.Item label="Administrador" value="admin" />
-                    <Picker.Item label="Gerente" value="manager" />
-                    <Picker.Item label="Motorista" value="driver" />
+                    <Picker.Item label="Usuário" value="user" color="#1F2937" />
+                    <Picker.Item label="Administrador" value="admin" color="#1F2937" />
+                    <Picker.Item label="Gerente" value="manager" color="#1F2937" />
+                    <Picker.Item label="Motorista" value="driver" color="#1F2937" />
                   </Picker>
                 </View>
               </View>
@@ -522,9 +526,9 @@ export default function AdminUsers() {
                     onValueChange={(value) => setFormData({ ...formData, status: value })}
                     style={styles.formPicker}
                   >
-                    <Picker.Item label="Ativo" value="active" />
-                    <Picker.Item label="Inativo" value="inactive" />
-                    <Picker.Item label="Suspenso" value="suspended" />
+                    <Picker.Item label="Ativo" value="active" color="#1F2937" />
+                    <Picker.Item label="Inativo" value="inactive" color="#1F2937" />
+                    <Picker.Item label="Suspenso" value="suspended" color="#1F2937" />
                   </Picker>
                 </View>
               </View>
@@ -800,6 +804,19 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 40,
   },
+  filterPickerContainer: {
+     flex: 1,
+     backgroundColor: '#F9FAFB',
+     borderRadius: 8,
+     borderWidth: 1,
+     borderColor: '#E5E7EB',
+     overflow: 'hidden',
+     minHeight: 50,
+   },
+   filterPicker: {
+     height: 50,
+     color: '#1F2937',
+   },
   listContainer: {
     padding: 20,
   },
@@ -950,14 +967,15 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
   pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  formPicker: {
-    height: 50,
-  },
+     borderWidth: 1,
+     borderColor: '#D1D5DB',
+     borderRadius: 12,
+     overflow: 'hidden',
+     minHeight: 56,
+   },
+   formPicker: {
+     height: 56,
+   },
   verificationSection: {
     marginTop: 24,
     marginBottom: 16,
