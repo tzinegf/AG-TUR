@@ -22,7 +22,7 @@ export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   
   const [isEditing, setIsEditing] = useState(false);
-  const [editedName, setEditedName] = useState(user?.name || user?.full_name || '');
+  const [editedName, setEditedName] = useState(user?.name || '');
   const [editedPhone, setEditedPhone] = useState(user?.phone || '');
 
   const handleLogout = () => {
@@ -125,7 +125,7 @@ export default function ProfileScreen() {
             <Ionicons name="person" size={40} color="white" />
           </View>
           <Text style={styles.userName}>
-            {user?.name || user?.full_name || 'Usuário'}
+            {user?.name || 'Usuário'}
           </Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
         </View>

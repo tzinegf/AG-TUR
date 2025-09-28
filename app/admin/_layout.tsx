@@ -47,6 +47,7 @@ export default function AdminLayout() {
       <Stack.Screen name="buses" options={{ title: 'Gerenciar Ônibus' }} />
       <Stack.Screen name="bookings" options={{ title: 'Gerenciar Reservas' }} />
       <Stack.Screen name="users" options={{ title: 'Gerenciar Usuários' }} />
+      <Stack.Screen name="reports" options={{ title: 'Relatórios' }} />
     </Stack>
   );
 }

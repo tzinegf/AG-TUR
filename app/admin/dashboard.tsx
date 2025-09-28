@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAdminStore } from '../../store/adminStore';
 import { LinearGradient } from 'expo-linear-gradient';
+import { dashboardService, DashboardStats, RecentActivity } from '../../services/dashboard';
 
 interface DashboardCard {
   id: string;
@@ -17,14 +18,16 @@ interface DashboardCard {
 export default function AdminDashboard() {
   const { adminUser, logoutAdmin } = useAdminStore();
   const [refreshing, setRefreshing] = useState(false);
-  const [stats, setStats] = useState({
-    totalBookings: 156,
-    activeRoutes: 24,
-    totalBuses: 18,
-    totalUsers: 342,
-    todayRevenue: 'R$ 12.450,00',
-    monthRevenue: 'R$ 385.200,00',
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalBookings: 0,
+    activeRoutes: 0,
+    totalBuses: 0,
+    totalUsers: 0,
+    todayRevenue: 0,
+    monthRevenue: 0,
   });
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
 
   const dashboardCards: DashboardCard[] = [
     {
@@ -61,15 +64,30 @@ export default function AdminDashboard() {
     },
   ];
 
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [dashboardStats, activities] = await Promise.all([
+        dashboardService.getDashboardStats(),
+        dashboardService.getRecentActivities(),
+      ]);
+      
+      setStats(dashboardStats);
+      setRecentActivities(activities);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate data refresh
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setStats({
-      ...stats,
-      totalBookings: stats.totalBookings + Math.floor(Math.random() * 5),
-      todayRevenue: `R$ ${(12450 + Math.random() * 1000).toFixed(2).replace('.', ',')}`,
-    });
+    await fetchDashboardData();
     setRefreshing(false);
   };
 
@@ -106,12 +124,12 @@ export default function AdminDashboard() {
         <View style={styles.revenueCard}>
           <Ionicons name="cash" size={24} color="#10B981" />
           <Text style={styles.revenueLabel}>Receita Hoje</Text>
-          <Text style={styles.revenueValue}>{stats.todayRevenue}</Text>
+          <Text style={styles.revenueValue}>{dashboardService.formatCurrency(stats.todayRevenue)}</Text>
         </View>
         <View style={styles.revenueCard}>
           <Ionicons name="trending-up" size={24} color="#3B82F6" />
           <Text style={styles.revenueLabel}>Receita Mensal</Text>
-          <Text style={styles.revenueValue}>{stats.monthRevenue}</Text>
+          <Text style={styles.revenueValue}>{dashboardService.formatCurrency(stats.monthRevenue)}</Text>
         </View>
       </View>
 
@@ -148,8 +166,8 @@ export default function AdminDashboard() {
           <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/admin/bookings')}>
-          <Ionicons name="document-text" size={24} color="#DC2626" />
+        <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/admin/reports')}>
+          <Ionicons name="analytics" size={24} color="#DC2626" />
           <Text style={styles.actionText}>Gerar Relatório</Text>
           <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
         </TouchableOpacity>
@@ -159,35 +177,39 @@ export default function AdminDashboard() {
       <View style={styles.recentActivity}>
         <Text style={styles.sectionTitle}>Atividade Recente</Text>
         
-        <View style={styles.activityItem}>
-          <View style={styles.activityIcon}>
-            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+        {loading ? (
+          <View style={styles.activityItem}>
+            <View style={styles.activityIcon}>
+              <Ionicons name="time" size={20} color="#9CA3AF" />
+            </View>
+            <View style={styles.activityContent}>
+              <Text style={styles.activityText}>Carregando atividades...</Text>
+              <Text style={styles.activityTime}>Aguarde</Text>
+            </View>
           </View>
-          <View style={styles.activityContent}>
-            <Text style={styles.activityText}>Nova reserva #1234</Text>
-            <Text style={styles.activityTime}>Há 5 minutos</Text>
+        ) : recentActivities.length > 0 ? (
+          recentActivities.map((activity) => (
+            <View key={activity.id} style={styles.activityItem}>
+              <View style={styles.activityIcon}>
+                <Ionicons name={activity.icon as any} size={20} color={activity.color} />
+              </View>
+              <View style={styles.activityContent}>
+                <Text style={styles.activityText}>{activity.description}</Text>
+                <Text style={styles.activityTime}>{dashboardService.formatTimeAgo(activity.timestamp)}</Text>
+              </View>
+            </View>
+          ))
+        ) : (
+          <View style={styles.activityItem}>
+            <View style={styles.activityIcon}>
+              <Ionicons name="information-circle" size={20} color="#9CA3AF" />
+            </View>
+            <View style={styles.activityContent}>
+              <Text style={styles.activityText}>Nenhuma atividade recente</Text>
+              <Text style={styles.activityTime}>Aguardando movimentação</Text>
+            </View>
           </View>
-        </View>
-
-        <View style={styles.activityItem}>
-          <View style={styles.activityIcon}>
-            <Ionicons name="bus" size={20} color="#3B82F6" />
-          </View>
-          <View style={styles.activityContent}>
-            <Text style={styles.activityText}>Ônibus AG-101 partiu</Text>
-            <Text style={styles.activityTime}>Há 15 minutos</Text>
-          </View>
-        </View>
-
-        <View style={styles.activityItem}>
-          <View style={styles.activityIcon}>
-            <Ionicons name="person-add" size={20} color="#8B5CF6" />
-          </View>
-          <View style={styles.activityContent}>
-            <Text style={styles.activityText}>Novo usuário cadastrado</Text>
-            <Text style={styles.activityTime}>Há 30 minutos</Text>
-          </View>
-        </View>
+        )}
       </View>
     </ScrollView>
   );

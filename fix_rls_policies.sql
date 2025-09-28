@@ -1,3 +1,28 @@
+-- Fix RLS policies and table structure
+-- Execute este script no SQL Editor do Supabase
+
+-- Primeiro, vamos verificar se a tabela profiles existe e sua estrutura
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_name = 'profiles' AND table_schema = 'public'
+ORDER BY ordinal_position;
+
+-- Se a coluna full_name existir, vamos renomeá-la para name
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' 
+    AND column_name = 'full_name' 
+    AND table_schema = 'public'
+  ) THEN
+    ALTER TABLE profiles RENAME COLUMN full_name TO name;
+    RAISE NOTICE 'Coluna full_name renomeada para name';
+  ELSE
+    RAISE NOTICE 'Coluna full_name não encontrada ou já foi renomeada';
+  END IF;
+END $$;
+
 -- Corrigir políticas RLS para a tabela routes
 -- Primeiro, remover políticas existentes se houver
 DROP POLICY IF EXISTS "Anyone can view active routes" ON routes;
@@ -44,7 +69,7 @@ SELECT EXISTS (
 CREATE TABLE IF NOT EXISTS profiles (
   id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email text UNIQUE NOT NULL,
-  full_name text,
+  name text,
   phone text,
   role text NOT NULL DEFAULT 'admin' CHECK (role IN ('user', 'admin')),
   created_at timestamptz DEFAULT now(),
@@ -62,7 +87,7 @@ CREATE POLICY "Users can update own profile" ON profiles
   FOR UPDATE USING (auth.uid() = id);
 
 -- Inserir um perfil admin padrão (ajuste o email conforme necessário)
-INSERT INTO profiles (id, email, full_name, role)
+INSERT INTO profiles (id, email, name, role)
 SELECT 
   auth.uid(),
   'admin@agtur.com',

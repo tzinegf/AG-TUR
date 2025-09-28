@@ -35,11 +35,6 @@ export default function RoutesManagement() {
     arrival_time: '',
     price: '',
     bus_company: '',
-    available_seats: '40',
-    total_seats: '40',
-    // Novos campos adicionados
-    duration: '',
-    amenities: [] as string[],
     bus_type: 'convencional'
   });
 
@@ -106,10 +101,6 @@ export default function RoutesManagement() {
         arrival_time: '',
         price: '',
         bus_company: '',
-        available_seats: '40',
-        total_seats: '40',
-        duration: '',
-        amenities: [],
         bus_type: 'convencional'
       });
       setEditingRoute(null);
@@ -244,36 +235,6 @@ export default function RoutesManagement() {
         return;
       }
 
-      // Validação de assentos conforme padrões brasileiros
-      const availableSeats = parseInt(formData.available_seats);
-      const totalSeats = parseInt(formData.total_seats);
-
-      if (isNaN(availableSeats) || availableSeats < 0) {
-        Alert.alert('Erro de Validação', 'Por favor, informe um número válido de assentos disponíveis');
-        return;
-      }
-
-      if (isNaN(totalSeats) || totalSeats <= 0) {
-        Alert.alert('Erro de Validação', 'Por favor, informe um número válido de assentos totais');
-        return;
-      }
-
-      // Validação de capacidade mínima e máxima de ônibus no Brasil
-      if (totalSeats < 20) {
-        Alert.alert('Erro de Validação', 'O número mínimo de assentos para ônibus rodoviário é 20');
-        return;
-      }
-
-      if (totalSeats > 60) {
-        Alert.alert('Erro de Validação', 'O número máximo de assentos para ônibus rodoviário é 60');
-        return;
-      }
-
-      if (availableSeats > totalSeats) {
-        Alert.alert('Erro de Validação', 'O número de assentos disponíveis não pode ser maior que o total de assentos');
-        return;
-      }
-
       // Validação de nome da empresa brasileira
       const companyNameRegex = /^[A-Za-zÀ-ÿ0-9\s\-\.\&]+$/;
       
@@ -306,14 +267,13 @@ export default function RoutesManagement() {
         destination: formData.destination.trim(),
         departure: formData.departure.trim(),
         arrival: formData.arrival_time.trim(),
+        arrival_time: formData.arrival_time.trim(),
         price: finalPrice,
-        available_seats: availableSeats,
-        total_seats: parseInt(formData.total_seats),
         bus_company: formData.bus_company.trim(),
-        // Novos campos
-        duration: parseInt(formData.duration) || 0,
-        amenities: formData.amenities,
         bus_type: formData.bus_type,
+        available_seats: 40,
+        total_seats: 40,
+        duration: calculateDuration(formData.departure.trim(), formData.arrival_time.trim()),
         status: 'active'
       };
 
@@ -348,11 +308,7 @@ export default function RoutesManagement() {
       arrival_time: route.arrival,
       price: priceValue,
       bus_company: route.bus_company,
-      available_seats: '40', // Default value
-      total_seats: '40',
-      duration: '',
-      amenities: [],
-      bus_type: route.bus_type || 'convencional' // Default value
+      bus_type: route.bus_type || 'convencional'
     });
     setModalVisible(true);
   };
@@ -562,41 +518,6 @@ export default function RoutesManagement() {
               />
             </View>
 
-            <View style={styles.formRow}>
-              <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
-                <Text style={styles.label}>Assentos Disponíveis *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.available_seats}
-                  onChangeText={(text) => handleInputChange('available_seats', text)}
-                  placeholder="40"
-                  keyboardType="numeric"
-                />
-              </View>
-
-              <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
-                <Text style={styles.label}>Total de Assentos *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.total_seats}
-                  onChangeText={(text) => handleInputChange('total_seats', text)}
-                  placeholder="40"
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Duração da Viagem (minutos) *</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.duration}
-                onChangeText={(text) => handleInputChange('duration', text)}
-                placeholder="Ex: 360 (6 horas)"
-                keyboardType="numeric"
-              />
-            </View>
-
             <View style={styles.formGroup}>
               <Text style={styles.label}>Tipo de Ônibus *</Text>
               <View style={styles.pickerContainer}>
@@ -632,37 +553,6 @@ export default function RoutesManagement() {
                     Leito
                   </Text>
                 </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Comodidades</Text>
-              <View style={styles.amenitiesContainer}>
-                {['ar-condicionado', 'wifi', 'tomada', 'banheiro', 'tv', 'lanche', 'agua'].map((amenity) => {
-                  const amenities = formData.amenities || [];
-                  return (
-                    <TouchableOpacity
-                      key={amenity}
-                      style={[
-                        styles.amenityChip,
-                        amenities.includes(amenity) && styles.amenityChipSelected
-                      ]}
-                      onPress={() => {
-                        const newAmenities = amenities.includes(amenity)
-                          ? amenities.filter(a => a !== amenity)
-                          : [...amenities, amenity];
-                        handleInputChange('amenities', newAmenities);
-                      }}
-                    >
-                      <Text style={[
-                        styles.amenityText,
-                        amenities.includes(amenity) && styles.amenityTextSelected
-                      ]}>
-                        {amenity.charAt(0).toUpperCase() + amenity.slice(1).replace('-', ' ')}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
               </View>
             </View>
           </ScrollView>

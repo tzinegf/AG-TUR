@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 export interface AdminUser {
   id: string;
   email: string;
-  full_name: string;
+  name: string;
   role: 'admin' | 'manager';
 }
 
@@ -40,7 +40,7 @@ export const adminAuthService = {
       const adminUser: AdminUser = {
         id: profile.id,
         email: profile.email,
-        full_name: profile.full_name,
+        name: profile.full_name,
         role: profile.role as 'admin' | 'manager'
       };
 
@@ -73,7 +73,7 @@ export const adminAuthService = {
       return {
         id: profile.id,
         email: profile.email,
-        full_name: profile.full_name,
+        name: profile.full_name,
         role: profile.role as 'admin' | 'manager'
       };
     } catch (error) {
@@ -90,7 +90,7 @@ export const adminAuthService = {
         password,
         options: {
           data: {
-            full_name: fullName,
+            name: fullName,
             role: 'admin'
           }
         }
@@ -110,7 +110,7 @@ export const adminAuthService = {
         .insert({
           id: authData.user.id,
           email: email,
-          full_name: fullName,
+          name: fullName,
           phone: '',
           role: 'admin'
         });

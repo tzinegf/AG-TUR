@@ -197,7 +197,7 @@ export default function BookingScreen() {
         seats: selectedSeats,
         passengers,
         payment_method: paymentMethod,
-        total_amount: totalAmount,
+        total_price: totalAmount,
         status: 'confirmed'
       };
 

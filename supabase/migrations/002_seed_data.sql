@@ -1,12 +1,12 @@
 /*
   # Seed Data for AG TUR
   
-  1. Sample bus routes
+  1. Sample routes
   2. Sample admin user
 */
 
--- Insert sample bus routes
-INSERT INTO bus_routes (origin, destination, departure_time, arrival_time, price, available_seats, total_seats, bus_company, bus_type, amenities)
+-- Insert sample routes
+INSERT INTO routes (origin, destination, departure_time, arrival_time, price, available_seats, total_seats, bus_company, bus_type, amenities)
 VALUES
   ('São Paulo', 'Rio de Janeiro', '2025-01-20 08:00:00', '2025-01-20 14:30:00', 89.90, 40, 44, 'AG TUR', 'Executivo', ARRAY['Wi-Fi', 'Ar Condicionado', 'Banheiro', 'Tomadas USB']),
   ('São Paulo', 'Rio de Janeiro', '2025-01-20 14:00:00', '2025-01-20 20:30:00', 89.90, 38, 44, 'AG TUR', 'Executivo', ARRAY['Wi-Fi', 'Ar Condicionado', 'Banheiro', 'Tomadas USB']),

@@ -6,7 +6,6 @@ interface User {
   id: string;
   email: string;
   name?: string;
-  full_name?: string;
   phone?: string;
 }
 
@@ -57,7 +56,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         password,
         options: {
           data: {
-            full_name: fullName,
+            name: fullName,
           },
         },
       });
@@ -68,7 +67,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         const user = {
           id: data.user.id,
           email: data.user.email!,
-          full_name: fullName,
+          name: fullName,
         };
         
         await AsyncStorage.setItem('@AGTur:user', JSON.stringify(user));

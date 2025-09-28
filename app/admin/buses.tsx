@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,80 +10,17 @@ import {
   Alert,
   FlatList,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Picker } from '@react-native-picker/picker';
-
-interface Bus {
-  id: string;
-  plate: string;
-  model: string;
-  manufacturer: string;
-  year: number;
-  seats: number;
-  type: 'convencional' | 'executivo' | 'leito';
-  status: 'active' | 'maintenance' | 'inactive';
-  amenities: string[];
-  lastMaintenance: string;
-  nextMaintenance: string;
-  mileage: number;
-  driver?: string;
-  imageUrl?: string;
-}
+import { Bus } from '../../lib/supabase';
+import { busService } from '../../services/busService';
 
 export default function AdminBuses() {
-  const [buses, setBuses] = useState<Bus[]>([
-    {
-      id: '1',
-      plate: 'ABC-1234',
-      model: 'Paradiso 1200',
-      manufacturer: 'Marcopolo',
-      year: 2022,
-      seats: 46,
-      type: 'executivo',
-      status: 'active',
-      amenities: ['ar-condicionado', 'wifi', 'banheiro', 'tomadas'],
-      lastMaintenance: '2024-01-01',
-      nextMaintenance: '2024-02-01',
-      mileage: 45000,
-      driver: 'Carlos Silva',
-      imageUrl: 'https://images.pexels.com/photos/385998/pexels-photo-385998.jpeg?auto=compress&cs=tinysrgb&w=600',
-    },
-    {
-      id: '2',
-      plate: 'DEF-5678',
-      model: 'Busscar Vissta',
-      manufacturer: 'Busscar',
-      year: 2021,
-      seats: 42,
-      type: 'convencional',
-      status: 'maintenance',
-      amenities: ['ar-condicionado', 'banheiro'],
-      lastMaintenance: '2023-12-15',
-      nextMaintenance: '2024-01-15',
-      mileage: 78000,
-      driver: 'João Santos',
-      imageUrl: 'https://images.pexels.com/photos/68629/pexels-photo-68629.jpeg?auto=compress&cs=tinysrgb&w=600',
-    },
-    {
-      id: '3',
-      plate: 'GHI-9012',
-      model: 'Comil Campione',
-      manufacturer: 'Comil',
-      year: 2023,
-      seats: 28,
-      type: 'leito',
-      status: 'active',
-      amenities: ['ar-condicionado', 'wifi', 'banheiro', 'tomadas', 'entretenimento', 'serviço-bordo'],
-      lastMaintenance: '2023-12-20',
-      nextMaintenance: '2024-01-20',
-      mileage: 12000,
-      driver: 'Pedro Oliveira',
-      imageUrl: 'https://images.pexels.com/photos/1210622/pexels-photo-1210622.jpeg?auto=compress&cs=tinysrgb&w=600',
-    },
-  ]);
-
+  const [buses, setBuses] = useState<Bus[]>([]);
+  const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingBus, setEditingBus] = useState<Bus | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,17 +31,32 @@ export default function AdminBuses() {
   const [formData, setFormData] = useState({
     plate: '',
     model: '',
-    manufacturer: '',
+    brand: '',
     year: new Date().getFullYear(),
     seats: 42,
-    type: '' as '' | 'convencional' | 'executivo' | 'leito',
-    status: '' as '' | 'active' | 'maintenance' | 'inactive',
+    type: 'convencional' as 'convencional' | 'executivo' | 'leito',
+    status: 'active' as 'active' | 'maintenance' | 'inactive',
     amenities: [] as string[],
-    lastMaintenance: '',
-    nextMaintenance: '',
-    mileage: 0,
-    driver: '',
+    imageurl: '',
   });
+
+  // Carregar ônibus ao montar o componente
+  useEffect(() => {
+    loadBuses();
+  }, []);
+
+  const loadBuses = async () => {
+    try {
+      setLoading(true);
+      const busesData = await busService.getAllBuses();
+      setBuses(busesData);
+    } catch (error) {
+      console.error('Erro ao carregar ônibus:', error);
+      Alert.alert('Erro', 'Não foi possível carregar os ônibus. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const availableAmenities = [
     { id: 'ar-condicionado', label: 'Ar Condicionado', icon: 'snow' },
@@ -119,8 +71,7 @@ export default function AdminBuses() {
     const matchesSearch = 
       bus.plate.toLowerCase().includes(searchQuery.toLowerCase()) ||
       bus.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      bus.manufacturer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (bus.driver && bus.driver.toLowerCase().includes(searchQuery.toLowerCase()));
+      bus.brand.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesType = filterType === 'all' || bus.type === filterType;
     const matchesStatus = filterStatus === 'all' || bus.status === filterStatus;
@@ -133,16 +84,13 @@ export default function AdminBuses() {
     setFormData({
       plate: '',
       model: '',
-      manufacturer: '',
+      brand: '',
       year: new Date().getFullYear(),
       seats: 42,
       type: 'convencional',
       status: 'active',
       amenities: [],
-      lastMaintenance: '',
-      nextMaintenance: '',
-      mileage: 0,
-      driver: '',
+      imageurl: '',
     });
     setModalVisible(true);
   };
@@ -152,21 +100,18 @@ export default function AdminBuses() {
     setFormData({
       plate: bus.plate,
       model: bus.model,
-      manufacturer: bus.manufacturer,
+      brand: bus.brand,
       year: bus.year,
       seats: bus.seats,
       type: bus.type,
       status: bus.status,
-      amenities: bus.amenities,
-      lastMaintenance: bus.lastMaintenance,
-      nextMaintenance: bus.nextMaintenance,
-      mileage: bus.mileage,
-      driver: bus.driver || '',
+      amenities: bus.amenities || [],
+      imageurl: bus.imageurl || '',
     });
     setModalVisible(true);
   };
 
-  const handleDeleteBus = (busId: string) => {
+  const handleDeleteBus = async (busId: string) => {
     Alert.alert(
       'Confirmar Exclusão',
       'Tem certeza que deseja excluir este ônibus?',
@@ -175,39 +120,56 @@ export default function AdminBuses() {
         {
           text: 'Excluir',
           style: 'destructive',
-          onPress: () => {
-            setBuses(buses.filter(bus => bus.id !== busId));
-            Alert.alert('Sucesso', 'Ônibus excluído com sucesso!');
+          onPress: async () => {
+            try {
+              await busService.deleteBus(busId);
+              await loadBuses(); // Recarregar lista
+              Alert.alert('Sucesso', 'Ônibus excluído com sucesso!');
+            } catch (error) {
+              console.error('Erro ao excluir ônibus:', error);
+              Alert.alert('Erro', 'Não foi possível excluir o ônibus. Tente novamente.');
+            }
           },
         },
       ]
     );
   };
 
-  const handleSaveBus = () => {
-    if (!formData.plate || !formData.model || !formData.manufacturer) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos obrigatórios.');
+  const handleSaveBus = async () => {
+    // Validação de campos obrigatórios
+    const requiredFields = [
+      { field: formData.plate?.trim(), name: 'Placa' },
+      { field: formData.model?.trim(), name: 'Modelo' },
+      { field: formData.brand?.trim(), name: 'Marca' },
+      { field: formData.year && formData.year > 1900, name: 'Ano' },
+      { field: formData.seats && formData.seats > 0, name: 'Número de assentos' },
+    ];
+
+    const missingFields = requiredFields.filter(item => !item.field).map(item => item.name);
+    
+    if (missingFields.length > 0) {
+      Alert.alert(
+        'Campos obrigatórios', 
+        `Por favor, preencha os seguintes campos:\n• ${missingFields.join('\n• ')}`
+      );
       return;
     }
 
-    if (editingBus) {
-      setBuses(buses.map(bus =>
-        bus.id === editingBus.id
-          ? { ...bus, ...formData }
-          : bus
-      ));
-      Alert.alert('Sucesso', 'Ônibus atualizado com sucesso!');
-    } else {
-      const newBus: Bus = {
-        id: Date.now().toString(),
-        ...formData,
-        imageUrl: 'https://images.pexels.com/photos/385998/pexels-photo-385998.jpeg?auto=compress&cs=tinysrgb&w=600',
-      };
-      setBuses([...buses, newBus]);
-      Alert.alert('Sucesso', 'Ônibus cadastrado com sucesso!');
+    try {
+      if (editingBus) {
+        await busService.updateBus(editingBus.id, formData);
+        Alert.alert('Sucesso', 'Ônibus atualizado com sucesso!');
+      } else {
+        await busService.createBus(formData);
+        Alert.alert('Sucesso', 'Ônibus cadastrado com sucesso!');
+      }
+      
+      await loadBuses(); // Recarregar lista
+      setModalVisible(false);
+    } catch (error) {
+      console.error('Erro ao salvar ônibus:', error);
+      Alert.alert('Erro', 'Não foi possível salvar o ônibus. Tente novamente.');
     }
-
-    setModalVisible(false);
   };
 
   const toggleAmenity = (amenityId: string) => {
@@ -240,74 +202,68 @@ export default function AdminBuses() {
   const renderBusItem = ({ item }: { item: Bus }) => (
     <TouchableOpacity style={styles.busCard} onPress={() => handleEditBus(item)}>
       <View style={styles.busHeader}>
-        {item.imageUrl && (
-          <Image source={{ uri: item.imageUrl }} style={styles.busImage} />
+        {item.imageurl && (
+          <Image source={{ uri: item.imageurl }} style={styles.busImage} />
         )}
         <View style={styles.busInfo}>
           <View style={styles.busTopRow}>
             <Text style={styles.busPlate}>{item.plate}</Text>
             <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
               <Text style={styles.statusText}>
-                {item.status === 'active' ? 'Ativo' : item.status === 'maintenance' ? 'Manutenção' : 'Inativo'}
+                {item.status === 'active' ? 'Ativo' : 
+                 item.status === 'maintenance' ? 'Manutenção' : 'Inativo'}
               </Text>
             </View>
           </View>
           <Text style={styles.busModel}>{item.model}</Text>
-          <Text style={styles.busDetails}>{item.manufacturer} • {item.year}</Text>
+          <Text style={styles.busDetails}>{item.brand} • {item.year}</Text>
           
           <View style={styles.busStats}>
             <View style={styles.statItem}>
-              <Ionicons name="people" size={16} color="#6B7280" />
-              <Text style={styles.statText}>{item.seats} lugares</Text>
+              <Ionicons name="people" size={14} color="#6B7280" />
+              <Text style={styles.statText}>{item.seats} assentos</Text>
             </View>
             <View style={styles.statItem}>
-              <Ionicons name="speedometer" size={16} color="#6B7280" />
-              <Text style={styles.statText}>{item.mileage.toLocaleString()} km</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Ionicons name="star" size={16} color="#6B7280" />
+              <Ionicons name="car" size={14} color="#6B7280" />
               <Text style={styles.statText}>{getTypeLabel(item.type)}</Text>
             </View>
           </View>
 
-          {item.amenities.length > 0 && (
+          {item.amenities && item.amenities.length > 0 && (
             <View style={styles.amenitiesRow}>
               {item.amenities.slice(0, 3).map((amenity, index) => {
                 const amenityData = availableAmenities.find(a => a.id === amenity);
-                return amenityData ? (
+                return (
                   <View key={index} style={styles.amenityBadge}>
-                    <Ionicons name={amenityData.icon as any} size={12} color="#DC2626" />
-                    <Text style={styles.amenityText}>{amenityData.label}</Text>
+                    <Ionicons 
+                      name={amenityData?.icon as any || 'checkmark'} 
+                      size={12} 
+                      color="#DC2626" 
+                    />
+                    <Text style={styles.amenityText}>{amenityData?.label || amenity}</Text>
                   </View>
-                ) : null;
+                );
               })}
               {item.amenities.length > 3 && (
-                <Text style={styles.moreAmenities}>+{item.amenities.length - 3}</Text>
+                <Text style={styles.moreAmenities}>+{item.amenities.length - 3} mais</Text>
               )}
-            </View>
-          )}
-
-          {item.driver && (
-            <View style={styles.driverInfo}>
-              <Ionicons name="person" size={14} color="#6B7280" />
-              <Text style={styles.driverText}>Motorista: {item.driver}</Text>
             </View>
           )}
         </View>
       </View>
-
+      
       <View style={styles.busActions}>
-        <TouchableOpacity
-          style={styles.actionButton}
+        <TouchableOpacity 
+          style={styles.actionButton} 
           onPress={() => handleEditBus(item)}
         >
-          <Ionicons name="pencil" size={20} color="#3B82F6" />
+          <Ionicons name="create-outline" size={20} color="#6B7280" />
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.actionButton}
+        <TouchableOpacity 
+          style={[styles.actionButton, { borderRightWidth: 0 }]} 
           onPress={() => handleDeleteBus(item.id)}
         >
-          <Ionicons name="trash" size={20} color="#EF4444" />
+          <Ionicons name="trash-outline" size={20} color="#EF4444" />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -429,11 +385,11 @@ export default function AdminBuses() {
                 </View>
 
                 <View style={styles.formGroup}>
-                  <Text style={styles.label}>Fabricante *</Text>
+                  <Text style={styles.label}>Marca *</Text>
                   <TextInput
                     style={styles.input}
-                    value={formData.manufacturer}
-                    onChangeText={(text) => setFormData({ ...formData, manufacturer: text })}
+                    value={formData.brand}
+                    onChangeText={(text) => setFormData({ ...formData, brand: text })}
                     placeholder="Ex: Marcopolo"
                   />
                 </View>
@@ -526,46 +482,15 @@ export default function AdminBuses() {
               </View>
 
               <View style={styles.formSection}>
-                <Text style={styles.sectionTitle}>Manutenção e Operação</Text>
+                <Text style={styles.sectionTitle}>Imagem do Ônibus</Text>
                 
                 <View style={styles.formGroup}>
-                  <Text style={styles.label}>Quilometragem</Text>
+                  <Text style={styles.label}>URL da Imagem</Text>
                   <TextInput
                     style={styles.input}
-                    value={formData.mileage.toString()}
-                    onChangeText={(text) => setFormData({ ...formData, mileage: parseInt(text) || 0 })}
-                    keyboardType="numeric"
-                    placeholder="0"
-                  />
-                </View>
-
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Última Manutenção</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={formData.lastMaintenance}
-                    onChangeText={(text) => setFormData({ ...formData, lastMaintenance: text })}
-                    placeholder="DD/MM/AAAA"
-                  />
-                </View>
-
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Próxima Manutenção</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={formData.nextMaintenance}
-                    onChangeText={(text) => setFormData({ ...formData, nextMaintenance: text })}
-                    placeholder="DD/MM/AAAA"
-                  />
-                </View>
-
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Motorista Responsável</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={formData.driver}
-                    onChangeText={(text) => setFormData({ ...formData, driver: text })}
-                    placeholder="Nome do motorista"
+                    value={formData.imageurl || ''}
+                    onChangeText={(text) => setFormData({ ...formData, imageurl: text })}
+                    placeholder="https://exemplo.com/imagem.jpg"
                   />
                 </View>
               </View>
@@ -763,16 +688,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     paddingHorizontal: 8,
     paddingVertical: 4,
-  },
-  driverInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
-  },
-  driverText: {
-    fontSize: 12,
-    color: '#6B7280',
   },
   busActions: {
     flexDirection: 'row',

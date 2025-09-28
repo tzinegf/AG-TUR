@@ -3,7 +3,7 @@
   
   1. New Tables:
      - profiles (user profiles extending auth.users)
-     - bus_routes (available bus routes)
+     - routes (available bus routes)
      - bookings (user bookings)
      - payments (payment records)
   
@@ -12,21 +12,21 @@
      - Add policies for user access control
 */
 
--- Create profiles table
+-- Criação das tabelas principais
 CREATE TABLE IF NOT EXISTS profiles (
   id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email text UNIQUE NOT NULL,
-  full_name text NOT NULL,
-  phone text NOT NULL,
-  role text NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+  name text,
+  phone text,
+  role text NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin', 'manager')),
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- Create bus_routes table
-CREATE TABLE IF NOT EXISTS bus_routes (
+-- Create routes table
+CREATE TABLE IF NOT EXISTS routes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   origin text NOT NULL,
   destination text NOT NULL,
@@ -42,16 +42,16 @@ CREATE TABLE IF NOT EXISTS bus_routes (
   created_at timestamptz DEFAULT now()
 );
 
-ALTER TABLE bus_routes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE routes ENABLE ROW LEVEL SECURITY;
 
 -- Create bookings table
 CREATE TABLE IF NOT EXISTS bookings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  route_id uuid NOT NULL REFERENCES bus_routes(id),
+  route_id uuid NOT NULL REFERENCES routes(id),
   booking_date timestamptz DEFAULT now(),
   seat_numbers text[] NOT NULL,
-  total_amount decimal(10,2) NOT NULL,
+  total_price decimal(10,2) NOT NULL,
   payment_status text NOT NULL DEFAULT 'pending' CHECK (payment_status IN ('pending', 'completed', 'failed', 'refunded')),
   payment_method text,
   qr_code text,
@@ -75,8 +75,8 @@ CREATE TABLE IF NOT EXISTS payments (
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 
 -- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_bus_routes_origin_destination ON bus_routes(origin, destination);
-CREATE INDEX IF NOT EXISTS idx_bus_routes_departure_time ON bus_routes(departure_time);
+CREATE INDEX IF NOT EXISTS idx_routes_origin_destination ON routes(origin, destination);
+CREATE INDEX IF NOT EXISTS idx_routes_departure_time ON routes(departure_time);
 CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_route_id ON bookings(route_id);
 CREATE INDEX IF NOT EXISTS idx_payments_booking_id ON payments(booking_id);
@@ -99,11 +99,11 @@ CREATE POLICY "Admins can view all profiles" ON profiles
   ));
 
 -- Bus routes policies
-CREATE POLICY "Anyone can view active routes" ON bus_routes
+CREATE POLICY "Anyone can view active routes" ON routes
   FOR SELECT TO authenticated
   USING (status = 'active');
 
-CREATE POLICY "Admins can manage routes" ON bus_routes
+CREATE POLICY "Admins can manage routes" ON routes
   FOR ALL TO authenticated
   USING (EXISTS (
     SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
@@ -159,11 +159,11 @@ CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO profiles (id, email, full_name, phone)
+  INSERT INTO profiles (id, email, name, phone)
   VALUES (
     NEW.id,
     NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'name', NEW.raw_user_meta_data->>'full_name', ''),
     COALESCE(NEW.raw_user_meta_data->>'phone', '')
   );
   RETURN NEW;
@@ -180,11 +180,11 @@ CREATE OR REPLACE FUNCTION update_available_seats()
 RETURNS TRIGGER AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    UPDATE bus_routes
+    UPDATE routes
     SET available_seats = available_seats - array_length(NEW.seat_numbers, 1)
     WHERE id = NEW.route_id;
   ELSIF TG_OP = 'DELETE' OR (TG_OP = 'UPDATE' AND NEW.status = 'cancelled') THEN
-    UPDATE bus_routes
+    UPDATE routes
     SET available_seats = available_seats + array_length(OLD.seat_numbers, 1)
     WHERE id = OLD.route_id;
   END IF;

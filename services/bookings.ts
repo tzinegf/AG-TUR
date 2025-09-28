@@ -4,7 +4,7 @@ export const bookingsService = {
   async createBooking(
     routeId: string,
     seatNumbers: string[],
-    totalAmount: number,
+    totalPrice: number,
     paymentMethod: string
   ) {
     const { data: { user } } = await supabase.auth.getUser();
@@ -17,7 +17,7 @@ export const bookingsService = {
         user_id: user.id,
         route_id: routeId,
         seat_numbers: seatNumbers,
-        total_amount: totalAmount,
+        total_price: totalPrice,
         payment_method: paymentMethod,
         payment_status: 'pending',
       })
@@ -31,7 +31,7 @@ export const bookingsService = {
       .from('payments')
       .insert({
         booking_id: booking.id,
-        amount: totalAmount,
+        amount: totalPrice,
         method: paymentMethod,
         status: 'pending',
       });
@@ -135,14 +135,14 @@ export const bookingsService = {
 
     const { data: revenue, error: revenueError } = await supabase
       .from('bookings')
-      .select('total_amount')
+      .select('total_price')
       .eq('payment_status', 'completed');
 
     if (totalError || completedError || revenueError) {
       throw new Error('Failed to fetch stats');
     }
 
-    const totalRevenue = revenue?.reduce((sum, booking) => sum + booking.total_amount, 0) || 0;
+    const totalRevenue = revenue?.reduce((sum, booking) => sum + booking.total_price, 0) || 0;
 
     return {
       totalBookings: totalBookings?.length || 0,
