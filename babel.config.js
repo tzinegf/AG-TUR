@@ -18,6 +18,14 @@ module.exports = function(api) {
           }
         }
       ],
+      [
+        '@babel/plugin-transform-modules-commonjs',
+        {
+          allowTopLevelThis: true,
+          loose: true,
+          lazy: false
+        }
+      ],
       'react-native-reanimated/plugin'
     ]
   };

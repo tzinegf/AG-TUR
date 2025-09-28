@@ -1,264 +1,271 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { Colors } from '../../constants/Colors';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{email?: string; password?: string}>({});
   
   const { signIn } = useAuth();
+  const router = useRouter();
+
+  const validateForm = () => {
+    const newErrors: {email?: string; password?: string} = {};
+    
+    if (!email.trim()) {
+      newErrors.email = 'Email é obrigatório';
+    } else if (!email.includes('@')) {
+      newErrors.email = 'Email inválido';
+    }
+    
+    if (!password.trim()) {
+      newErrors.password = 'Senha é obrigatória';
+    } else if (password.length < 6) {
+      newErrors.password = 'Senha deve ter pelo menos 6 caracteres';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Erro', 'Preencha todos os campos');
+    if (!validateForm()) {
       return;
     }
 
     setLoading(true);
     try {
-      await signIn(email, password);
+      await signIn(email.trim(), password);
       router.replace('/(tabs)');
     } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Falha no login. Tente novamente.');
+      Alert.alert(
+        'Erro no Login',
+        error.message || 'Credenciais inválidas. Verifique seu email e senha.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  const navigateToSignUp = () => {
+    router.push('/auth/register');
+  };
+
   return (
-    <LinearGradient
-      colors={['#DC2626', '#7C3AED', '#EAB308']}
-      style={styles.container}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.content}>
-        {/* Header */}
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <View style={styles.content}>
+          <Text style={styles.title}>Entrar</Text>
+          <Text style={styles.subtitle}>Acesse sua conta AGTur</Text>
 
-        <View style={styles.header}>
-          <Ionicons name="bus" size={60} color="#FFFFFF" />
-          <Text style={styles.title}>Bem-vindo de volta!</Text>
-          <Text style={styles.subtitle}>Entre na sua conta AG TUR</Text>
-        </View>
-
-        {/* Form */}
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>E-mail</Text>
+          <View style={styles.form}>
             <View style={styles.inputContainer}>
-              <Ionicons name="mail" size={20} color="#9CA3AF" />
+              <Text style={styles.label}>Email</Text>
               <TextInput
-                style={styles.input}
-                placeholder="seu@email.com"
-                placeholderTextColor="#9CA3AF"
+                style={[styles.input, errors.email && styles.inputError]}
+                placeholder="Digite seu email"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (errors.email) {
+                    setErrors(prev => ({...prev, email: undefined}));
+                  }
+                }}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
               />
+              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
             </View>
-          </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Senha</Text>
             <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed" size={20} color="#9CA3AF" />
+              <Text style={styles.label}>Senha</Text>
               <TextInput
-                style={styles.input}
-                placeholder="Sua senha"
-                placeholderTextColor="#9CA3AF"
+                style={[styles.input, errors.password && styles.inputError]}
+                placeholder="Digite sua senha"
                 value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (errors.password) {
+                    setErrors(prev => ({...prev, password: undefined}));
+                  }
+                }}
+                secureTextEntry
+                editable={!loading}
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons 
-                  name={showPassword ? "eye-off" : "eye"} 
-                  size={20} 
-                  color="#9CA3AF" 
-                />
-              </TouchableOpacity>
+              {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>
-          </View>
 
-          <TouchableOpacity style={styles.forgotPassword}>
-            <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.loginButton, loading && styles.loginButtonDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading ? (
-              <Text style={styles.loginButtonText}>Entrando...</Text>
-            ) : (
-              <>
-                <Ionicons name="log-in" size={24} color="#FFFFFF" />
+            <TouchableOpacity
+              style={[styles.loginButton, loading && styles.loginButtonDisabled]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
                 <Text style={styles.loginButtonText}>Entrar</Text>
-              </>
-            )}
-          </TouchableOpacity>
+              )}
+            </TouchableOpacity>
 
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>ou</Text>
-            <View style={styles.dividerLine} />
-          </View>
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>ou</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-          <TouchableOpacity style={styles.socialButton}>
-            <Ionicons name="logo-google" size={24} color="#DC2626" />
-            <Text style={styles.socialButtonText}>Continuar com Google</Text>
-          </TouchableOpacity>
-
-          <View style={styles.signupContainer}>
-            <Text style={styles.signupText}>Não tem uma conta? </Text>
-            <TouchableOpacity onPress={() => router.push('/auth/register')}>
-              <Text style={styles.signupLink}>Cadastre-se</Text>
+            <TouchableOpacity
+              style={styles.signUpButton}
+              onPress={navigateToSignUp}
+              disabled={loading}
+            >
+              <Text style={styles.signUpButtonText}>Criar nova conta</Text>
             </TouchableOpacity>
           </View>
+
+          {__DEV__ && (
+            <View style={styles.devInfo}>
+              <Text style={styles.devInfoText}>
+                Desenvolvimento: user@agtur.local / UserTest2024!
+              </Text>
+            </View>
+          )}
         </View>
-      </View>
-    </LinearGradient>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.light.background,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   content: {
     flex: 1,
+    justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingTop: 60,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    padding: 8,
-    marginBottom: 20,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
+    paddingVertical: 32,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginTop: 16,
+    color: Colors.light.text,
+    textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#FFFFFF',
-    opacity: 0.9,
+    color: Colors.light.tabIconDefault,
+    textAlign: 'center',
+    marginBottom: 32,
   },
   form: {
-    flex: 1,
+    width: '100%',
   },
-  inputGroup: {
+  inputContainer: {
     marginBottom: 20,
   },
   label: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: Colors.light.text,
     marginBottom: 8,
   },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 12,
-  },
   input: {
-    flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     fontSize: 16,
-    color: '#1F2937',
+    backgroundColor: '#fff',
   },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: 32,
+  inputError: {
+    borderColor: '#ef4444',
   },
-  forgotPasswordText: {
+  errorText: {
+    color: '#ef4444',
     fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.9,
+    marginTop: 4,
   },
   loginButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 16,
-    paddingVertical: 18,
-    flexDirection: 'row',
+    backgroundColor: Colors.light.primary,
+    borderRadius: 8,
+    paddingVertical: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    marginTop: 8,
   },
   loginButtonDisabled: {
     opacity: 0.6,
   },
   loginButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 32,
-    gap: 16,
+    marginVertical: 24,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: Colors.light.border,
   },
   dividerText: {
+    marginHorizontal: 16,
+    color: Colors.light.tabIconDefault,
     fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.7,
   },
-  socialButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+  signUpButton: {
+    borderWidth: 1,
+    borderColor: Colors.light.primary,
+    borderRadius: 8,
     paddingVertical: 16,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 32,
   },
-  socialButtonText: {
+  signUpButtonText: {
+    color: Colors.light.primary,
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
   },
-  signupContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+  devInfo: {
+    marginTop: 24,
+    padding: 12,
+    backgroundColor: '#fef3c7',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
   },
-  signupText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    opacity: 0.9,
-  },
-  signupLink: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+  devInfoText: {
+    fontSize: 12,
+    color: '#92400e',
+    textAlign: 'center',
   },
 });

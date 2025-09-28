@@ -30,10 +30,33 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const [popularRoutes, setPopularRoutes] = useState<PopularRoute[]>([]);
   const [loadingRoutes, setLoadingRoutes] = useState(true);
+  const [userStats, setUserStats] = useState({
+    totalTrips: 0,
+    totalSpent: 0,
+    favoriteDestination: '',
+    memberSince: '',
+    upcomingTrips: 0,
+    loyaltyPoints: 0
+  });
 
   useEffect(() => {
     loadPopularRoutes();
+    loadUserStats();
   }, []);
+
+  const loadUserStats = () => {
+    // Simulate API call to get user statistics
+    setTimeout(() => {
+      setUserStats({
+        totalTrips: 12,
+        totalSpent: 1450.80,
+        favoriteDestination: 'Rio de Janeiro',
+        memberSince: 'Janeiro 2023',
+        upcomingTrips: 2,
+        loyaltyPoints: 850
+      });
+    }, 500);
+  };
 
   const loadPopularRoutes = () => {
     // Simulate API call
@@ -169,7 +192,7 @@ export default function HomeScreen() {
       title: 'Suporte',
       subtitle: 'Precisa de ajuda?',
       color: '#059669',
-      onPress: () => {},
+      onPress: () => router.push('/support'),
     },
   ];
 
@@ -192,6 +215,84 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </LinearGradient>
+
+      {/* User Data Section */}
+      <View style={styles.userDataSection}>
+        <View style={styles.userInfoCard}>
+          <View style={styles.userInfoHeader}>
+            <View style={styles.userAvatarContainer}>
+              <Ionicons name="person" size={32} color="#FFFFFF" />
+            </View>
+            <View style={styles.userInfoText}>
+              <Text style={styles.userName}>{user?.name || 'Usuário'}</Text>
+              <Text style={styles.userEmail}>{user?.email || 'email@exemplo.com'}</Text>
+              <Text style={styles.memberSince}>Membro desde {userStats.memberSince}</Text>
+            </View>
+            <TouchableOpacity style={styles.editProfileButton}>
+              <Ionicons name="pencil" size={16} color="#DC2626" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+             <View style={styles.statIconContainer}>
+               <Ionicons name="bus" size={20} color="#DC2626" />
+             </View>
+             <Text style={styles.statValue}>{userStats.totalTrips}</Text>
+             <Text style={styles.statLabel}>Viagens</Text>
+           </View>
+
+          <View style={styles.statCard}>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="card" size={20} color="#7C3AED" />
+            </View>
+            <Text style={styles.statValue}>R$ {userStats.totalSpent.toFixed(2)}</Text>
+            <Text style={styles.statLabel}>Gastos</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="location" size={20} color="#EAB308" />
+            </View>
+            <Text style={styles.statValue}>{userStats.favoriteDestination}</Text>
+            <Text style={styles.statLabel}>Destino Favorito</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="star" size={20} color="#059669" />
+            </View>
+            <Text style={styles.statValue}>{userStats.loyaltyPoints}</Text>
+            <Text style={styles.statLabel}>Pontos</Text>
+          </View>
+        </View>
+
+        {userStats.upcomingTrips > 0 && (
+          <View style={styles.upcomingTripsCard}>
+            <LinearGradient
+              colors={['#059669', '#10B981']}
+              style={styles.upcomingTripsGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <View style={styles.upcomingTripsContent}>
+                <Ionicons name="calendar" size={24} color="#FFFFFF" />
+                <View style={styles.upcomingTripsText}>
+                  <Text style={styles.upcomingTripsTitle}>Próximas Viagens</Text>
+                  <Text style={styles.upcomingTripsSubtitle}>
+                    Você tem {userStats.upcomingTrips} viagem{userStats.upcomingTrips > 1 ? 'ns' : ''} agendada{userStats.upcomingTrips > 1 ? 's' : ''}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.upcomingTripsButton}>
+                <Text style={styles.upcomingTripsButtonText}>Ver</Text>
+                <Ionicons name="arrow-forward" size={16} color="#059669" />
+              </TouchableOpacity>
+            </LinearGradient>
+          </View>
+        )}
+      </View>
 
       {/* Quick Actions */}
       <View style={styles.section}>
@@ -721,5 +822,173 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#EAB308',
+  },
+  promotionBadge: {
+    backgroundColor: '#EAB308',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  promotionBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  promotionIcon: {
+    color: '#EAB308',
+  },
+  // User Data Section Styles
+  userDataSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  userInfoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  userInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  userAvatarContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#DC2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  userInfoText: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  memberSince: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  editProfileButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  statCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    width: '48%',
+    marginBottom: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  upcomingTripsCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  upcomingTripsGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  upcomingTripsContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  upcomingTripsText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  upcomingTripsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  upcomingTripsSubtitle: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.9,
+  },
+  upcomingTripsButton: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  upcomingTripsButtonText: {
+    color: '#059669',
+    fontSize: 14,
+    fontWeight: '600',
+    marginRight: 4,
   },
 });

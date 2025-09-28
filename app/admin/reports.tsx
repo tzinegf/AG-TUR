@@ -55,6 +55,7 @@ export default function AdminReports() {
   ];
 
   useEffect(() => {
+    console.log('Usuário acessou a página: Relatórios Administrativos');
     generateReport();
   }, [activeTab, filter]);
 

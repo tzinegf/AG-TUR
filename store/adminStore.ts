@@ -36,30 +36,13 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         isAdminAuthenticated: false 
       });
       
-      // MODO DESENVOLVIMENTO: Credenciais temporárias
-      if (email === 'admin@agtur.com' && password === 'admin123') {
-        const adminUser: AdminUser = {
-          id: 'dev-admin-001',
-          name: 'Administrador AG TUR',
-          email: 'admin@agtur.com',
-          role: 'admin',
-        };
-
-        // Salvar no AsyncStorage
-        const sessionTimestamp = Date.now().toString();
-        await AsyncStorage.setItem('adminUser', JSON.stringify(adminUser));
-        await AsyncStorage.setItem('adminSessionTimestamp', sessionTimestamp);
-        
-        set({ 
-          adminUser, 
-          isAdminAuthenticated: true,
-          loading: false 
-        });
-        
-        return true;
+      // Validação básica de entrada
+      if (!email || !password || email.trim() === '' || password.trim() === '') {
+        set({ loading: false });
+        return false;
       }
       
-      // Tentar autenticação real do Supabase como fallback
+      // Tentar autenticação real do Supabase primeiro
       try {
         const { user, error } = await adminAuthService.signInAdmin(email, password);
         
@@ -76,10 +59,12 @@ export const useAdminStore = create<AdminState>((set, get) => ({
           role: user.role,
         };
 
-        // Salvar no AsyncStorage
+        // Salvar no AsyncStorage com timestamp de expiração (24 horas)
         const sessionTimestamp = Date.now().toString();
+        const expirationTime = (Date.now() + 24 * 60 * 60 * 1000).toString(); // 24 horas
         await AsyncStorage.setItem('adminUser', JSON.stringify(adminUser));
         await AsyncStorage.setItem('adminSessionTimestamp', sessionTimestamp);
+        await AsyncStorage.setItem('adminSessionExpiration', expirationTime);
         
         set({ 
           adminUser, 
@@ -89,7 +74,38 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         
         return true;
       } catch (supabaseError) {
-        console.log('Supabase auth failed, using dev mode only');
+        console.error('Falha na autenticação Supabase:', supabaseError);
+        
+        // MODO DESENVOLVIMENTO SEGURO: Apenas para desenvolvimento local
+        // Verificar se estamos em ambiente de desenvolvimento
+        const isDevelopment = __DEV__ || process.env.NODE_ENV === 'development';
+        
+        if (isDevelopment && email === 'dev@agtur.local' && password === 'DevSecure2024!') {
+          console.warn('⚠️ USANDO CREDENCIAIS DE DESENVOLVIMENTO - NÃO USAR EM PRODUÇÃO');
+          
+          const adminUser: AdminUser = {
+            id: 'dev-admin-001',
+            name: 'Administrador Desenvolvimento',
+            email: 'dev@agtur.local',
+            role: 'admin',
+          };
+
+          // Salvar no AsyncStorage com timestamp de expiração curta (2 horas para dev)
+          const sessionTimestamp = Date.now().toString();
+          const expirationTime = (Date.now() + 2 * 60 * 60 * 1000).toString(); // 2 horas
+          await AsyncStorage.setItem('adminUser', JSON.stringify(adminUser));
+          await AsyncStorage.setItem('adminSessionTimestamp', sessionTimestamp);
+          await AsyncStorage.setItem('adminSessionExpiration', expirationTime);
+          
+          set({ 
+            adminUser, 
+            isAdminAuthenticated: true,
+            loading: false 
+          });
+          
+          return true;
+        }
+        
         set({ loading: false });
         return false;
       }
@@ -119,9 +135,10 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       // Fazer logout no Supabase
       await adminAuthService.signOutAdmin();
       
-      // Limpar AsyncStorage
+      // Limpar AsyncStorage completamente
       await AsyncStorage.removeItem('adminUser');
       await AsyncStorage.removeItem('adminSessionTimestamp');
+      await AsyncStorage.removeItem('adminSessionExpiration');
       
       set({ adminUser: null, isAdminAuthenticated: false, loading: false });
     } catch (error) {
@@ -135,28 +152,46 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       set({ loading: true });
       const adminData = await AsyncStorage.getItem('adminUser');
       const sessionTimestamp = await AsyncStorage.getItem('adminSessionTimestamp');
+      const sessionExpiration = await AsyncStorage.getItem('adminSessionExpiration');
       
-      if (adminData && sessionTimestamp) {
+      if (adminData && sessionTimestamp && sessionExpiration) {
         const admin = JSON.parse(adminData);
-        const timestamp = parseInt(sessionTimestamp);
+        const expirationTime = parseInt(sessionExpiration);
         const currentTime = Date.now();
-        const sessionDuration = 24 * 60 * 60 * 1000; // 24 horas em millisegundos
         
-        // Verificar se a sessão ainda é válida (menos de 24 horas)
-        if (currentTime - timestamp < sessionDuration) {
-          set({ adminUser: admin, isAdminAuthenticated: true, loading: false });
+        // Verificar se a sessão ainda é válida
+        if (currentTime < expirationTime) {
+          set({ 
+            adminUser: admin, 
+            isAdminAuthenticated: true, 
+            loading: false 
+          });
         } else {
-          // Sessão expirada, limpar dados
+          // Sessão expirada - limpar dados
+          console.log('Sessão admin expirada, fazendo logout automático');
           await AsyncStorage.removeItem('adminUser');
           await AsyncStorage.removeItem('adminSessionTimestamp');
-          set({ adminUser: null, isAdminAuthenticated: false, loading: false });
+          await AsyncStorage.removeItem('adminSessionExpiration');
+          set({ 
+            adminUser: null, 
+            isAdminAuthenticated: false, 
+            loading: false 
+          });
         }
       } else {
-        set({ adminUser: null, isAdminAuthenticated: false, loading: false });
+        set({ 
+          adminUser: null, 
+          isAdminAuthenticated: false, 
+          loading: false 
+        });
       }
     } catch (error) {
       console.error('Error loading admin user:', error);
-      set({ adminUser: null, isAdminAuthenticated: false, loading: false });
+      set({ 
+        adminUser: null, 
+        isAdminAuthenticated: false, 
+        loading: false 
+      });
     }
   },
 }));

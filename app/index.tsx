@@ -8,11 +8,16 @@ export default function Index() {
   const { user, loading } = useAuth();
 
   useEffect(() => {
+    console.log('Index useEffect - user:', user, 'loading:', loading);
+    
     const timer = setTimeout(() => {
+      console.log('Timer executed - user:', user, 'loading:', loading);
       if (!loading) {
         if (user) {
+          console.log('Redirecting to /(tabs)');
           router.replace('/(tabs)');
         } else {
+          console.log('Redirecting to /auth');
           router.replace('/auth');
         }
       }

@@ -61,24 +61,23 @@ export default function ProfileScreen() {
     editable?: boolean;
     onChangeText?: (text: string) => void;
   }) => (
-    <View style={[styles.profileItem, { borderBottomColor: colors.text + '20' }]}>
-      <View style={styles.profileItemLeft}>
-        <Ionicons name={icon as any} size={24} color={colors.tint} />
-        <Text style={[styles.profileLabel, { color: colors.text }]}>{label}</Text>
+    <View style={styles.profileItem}>
+      <View style={styles.profileItemIcon}>
+        <Ionicons name={icon as any} size={20} color="#DC2626" />
       </View>
-      {isEditing && editable ? (
-        <TextInput
-          style={[styles.profileInput, { color: colors.text, borderColor: colors.tint }]}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={`Digite seu ${label.toLowerCase()}`}
-          placeholderTextColor={colors.text + '60'}
-        />
-      ) : (
-        <Text style={[styles.profileValue, { color: colors.text }]}>
-          {value || 'Não informado'}
-        </Text>
-      )}
+      <View style={styles.profileItemContent}>
+        <Text style={styles.profileItemLabel}>{label}</Text>
+        {editable && isEditing ? (
+          <TextInput
+            style={styles.profileItemInput}
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={`Digite seu ${label.toLowerCase()}`}
+          />
+        ) : (
+          <Text style={styles.profileItemValue}>{value || 'Não informado'}</Text>
+        )}
+      </View>
     </View>
   );
 
@@ -89,139 +88,143 @@ export default function ProfileScreen() {
     onPress: () => void;
     danger?: boolean;
   }) => (
-    <TouchableOpacity
-      style={[styles.menuOption, { borderBottomColor: colors.text + '20' }]}
-      onPress={onPress}
-    >
-      <View style={styles.menuOptionLeft}>
+    <TouchableOpacity style={styles.menuOption} onPress={onPress}>
+      <View style={[styles.menuOptionIcon, danger && styles.dangerIcon]}>
         <Ionicons
           name={icon as any}
-          size={24}
-          color={danger ? '#FF4444' : colors.tint}
+          size={22}
+          color={danger ? "#EF4444" : "#DC2626"}
         />
-        <View style={styles.menuOptionText}>
-          <Text style={[styles.menuTitle, { color: danger ? '#FF4444' : colors.text }]}>
-            {title}
-          </Text>
-          {subtitle && (
-            <Text style={[styles.menuSubtitle, { color: colors.text + '60' }]}>
-              {subtitle}
-            </Text>
-          )}
-        </View>
       </View>
-      <Ionicons name="chevron-forward" size={20} color={colors.text + '60'} />
+      <View style={styles.menuOptionContent}>
+        <Text style={[styles.menuOptionTitle, danger && styles.dangerText]}>
+          {title}
+        </Text>
+        {subtitle && (
+          <Text style={styles.menuOptionSubtitle}>
+            {subtitle}
+          </Text>
+        )}
+      </View>
+      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#F9FAFB' }]}>
       <LinearGradient
-        colors={['#4A90E2', '#357ABD']}
+        colors={['#DC2626', '#B91C1C']}
         style={styles.header}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
       >
         <View style={styles.headerContent}>
-          <View style={styles.avatarContainer}>
-            <Ionicons name="person" size={40} color="white" />
+          <View style={styles.profileHeader}>
+            <View style={styles.avatarContainer}>
+              <Ionicons name="person" size={48} color="white" />
+            </View>
+            <View style={styles.userInfo}>
+              <Text style={styles.userName}>
+                {user?.name || 'Usuário'}
+              </Text>
+              <Text style={styles.userEmail}>{user?.email}</Text>
+              <View style={styles.memberBadge}>
+                <Ionicons name="star" size={12} color="#FFFFFF" />
+                <Text style={styles.memberText}>Membro Premium</Text>
+              </View>
+            </View>
           </View>
-          <Text style={styles.userName}>
-            {user?.name || 'Usuário'}
-          </Text>
-          <Text style={styles.userEmail}>{user?.email}</Text>
+          <TouchableOpacity style={styles.settingsButton}>
+            <Ionicons name="settings-outline" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={[styles.section, { backgroundColor: colors.background }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Informações Pessoais
-            </Text>
-            <TouchableOpacity
-              onPress={() => {
-                if (isEditing) {
-                  handleSaveProfile();
-                } else {
-                  setIsEditing(true);
-                }
-              }}
-              style={[styles.editButton, { backgroundColor: colors.tint }]}
-            >
-              <Ionicons
-                name={isEditing ? 'checkmark' : 'pencil'}
-                size={16}
-                color="white"
-              />
-              <Text style={styles.editButtonText}>
-                {isEditing ? 'Salvar' : 'Editar'}
+          <View style={[styles.section, { backgroundColor: '#FFFFFF' }]}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: '#1F2937' }]}>
+                Informações Pessoais
               </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  if (isEditing) {
+                    handleSaveProfile();
+                  } else {
+                    setIsEditing(true);
+                  }
+                }}
+                style={[styles.editButton, { backgroundColor: '#DC2626' }]}
+              >
+                <Ionicons
+                  name={isEditing ? 'checkmark' : 'pencil'}
+                  size={16}
+                  color="white"
+                />
+                <Text style={styles.editButtonText}>
+                  {isEditing ? 'Salvar' : 'Editar'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <ProfileItem
+              icon="person-outline"
+              label="Nome"
+              value={editedName}
+              editable={true}
+              onChangeText={setEditedName}
+            />
+            <ProfileItem
+              icon="mail-outline"
+              label="E-mail"
+              value={user?.email || ''}
+            />
+            <ProfileItem
+              icon="call-outline"
+              label="Telefone"
+              value={editedPhone}
+              editable={true}
+              onChangeText={setEditedPhone}
+            />
           </View>
 
-          <ProfileItem
-            icon="person-outline"
-            label="Nome"
-            value={editedName}
-            editable={true}
-            onChangeText={setEditedName}
-          />
-          <ProfileItem
-            icon="mail-outline"
-            label="E-mail"
-            value={user?.email || ''}
-          />
-          <ProfileItem
-            icon="call-outline"
-            label="Telefone"
-            value={editedPhone}
-            editable={true}
-            onChangeText={setEditedPhone}
-          />
-        </View>
+          <View style={[styles.section, { backgroundColor: '#FFFFFF' }]}>
+            <Text style={[styles.sectionTitle, { color: '#1F2937' }]}>
+              Configurações
+            </Text>
+            
+            <MenuOption
+              icon="notifications-outline"
+              title="Notificações"
+              subtitle="Gerencie suas notificações"
+              onPress={() => Alert.alert('Em breve', 'Funcionalidade em desenvolvimento')}
+            />
+            
+            <MenuOption
+              icon="shield-outline"
+              title="Privacidade e Segurança"
+              subtitle="Alterar senha e configurações de privacidade"
+              onPress={() => Alert.alert('Em breve', 'Funcionalidade em desenvolvimento')}
+            />
 
-        <View style={[styles.section, { backgroundColor: colors.background }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Configurações
-          </Text>
-          
-          <MenuOption
-            icon="notifications-outline"
-            title="Notificações"
-            subtitle="Gerencie suas notificações"
-            onPress={() => Alert.alert('Em breve', 'Funcionalidade em desenvolvimento')}
-          />
-          
-          <MenuOption
-            icon="shield-outline"
-            title="Privacidade e Segurança"
-            subtitle="Alterar senha e configurações de privacidade"
-            onPress={() => Alert.alert('Em breve', 'Funcionalidade em desenvolvimento')}
-          />
-          
-          <MenuOption
-            icon="help-circle-outline"
-            title="Ajuda e Suporte"
-            subtitle="Central de ajuda e contato"
-            onPress={() => Alert.alert('Em breve', 'Funcionalidade em desenvolvimento')}
-          />
-          
-          <MenuOption
-            icon="information-circle-outline"
-            title="Sobre o App"
-            subtitle="Versão 1.0.0"
-            onPress={() => Alert.alert('AGTur', 'Aplicativo de passagens rodoviárias\nVersão 1.0.0')}
-          />
-        </View>
+            
+            <MenuOption
+              icon="information-circle-outline"
+              title="Sobre o App"
+              subtitle="Versão 1.0.0"
+              onPress={() => Alert.alert('AGTur', 'Aplicativo de passagens rodoviárias\nVersão 1.0.0')}
+            />
+          </View>
 
-        <View style={[styles.section, { backgroundColor: colors.background }]}>
-          <MenuOption
-            icon="log-out-outline"
-            title="Sair da Conta"
-            onPress={handleLogout}
-            danger={true}
-          />
-        </View>
-      </ScrollView>
+          <View style={[styles.section, { backgroundColor: '#FFFFFF' }]}>
+            <MenuOption
+              icon="log-out-outline"
+              title="Sair da Conta"
+              onPress={handleLogout}
+              danger={true}
+            />
+          </View>
+        </ScrollView>
     </SafeAreaView>
   );
 }
@@ -231,12 +234,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: 20,
+    paddingTop: 50,
     paddingBottom: 30,
     paddingHorizontal: 20,
   },
   headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   avatarContainer: {
     width: 80,
@@ -245,7 +255,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 15,
+    marginRight: 15,
+  },
+  userInfo: {
+    flex: 1,
   },
   userName: {
     fontSize: 24,
@@ -256,6 +269,30 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 16,
     color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 8,
+  },
+  memberBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  memberText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  settingsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     flex: 1,
@@ -296,56 +333,75 @@ const styles = StyleSheet.create({
   },
   profileItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 15,
+    paddingVertical: 16,
     borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  profileItemLeft: {
-    flexDirection: 'row',
+  profileItemIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF2F2',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 15,
+  },
+  profileItemContent: {
     flex: 1,
   },
-  profileLabel: {
-    fontSize: 16,
-    marginLeft: 15,
-    flex: 1,
+  profileItemLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 4,
   },
-  profileValue: {
+  profileItemValue: {
     fontSize: 16,
-    textAlign: 'right',
-    flex: 1,
+    color: '#1F2937',
+    fontWeight: '500',
   },
-  profileInput: {
+  profileItemInput: {
     fontSize: 16,
-    textAlign: 'right',
-    flex: 1,
+    color: '#1F2937',
+    fontWeight: '500',
     borderBottomWidth: 1,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
+    borderBottomColor: '#DC2626',
+    paddingVertical: 4,
   },
   menuOption: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 15,
+    paddingVertical: 16,
     borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  menuOptionLeft: {
-    flexDirection: 'row',
+  menuOptionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF2F2',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 15,
+  },
+  dangerIcon: {
+    backgroundColor: '#FEF2F2',
+  },
+  menuOptionContent: {
     flex: 1,
   },
-  menuOptionText: {
-    marginLeft: 15,
-    flex: 1,
-  },
-  menuTitle: {
+  menuOptionTitle: {
     fontSize: 16,
     fontWeight: '500',
+    color: '#1F2937',
+    marginBottom: 2,
   },
-  menuSubtitle: {
+  menuOptionSubtitle: {
     fontSize: 14,
-    marginTop: 2,
+    color: '#6B7280',
   },
+  dangerText: {
+    color: '#EF4444',
+  },
+  // Support Section Styles
 });

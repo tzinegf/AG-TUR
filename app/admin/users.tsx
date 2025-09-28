@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -31,6 +31,18 @@ interface User {
   avatar?: string;
   emailVerified: boolean;
   phoneVerified: boolean;
+  bookings?: Booking[];
+}
+
+interface Booking {
+  id: string;
+  bookingCode: string;
+  routeName: string;
+  departureDate: string;
+  departureTime: string;
+  price: number;
+  status: 'confirmed' | 'pending' | 'cancelled';
+  seatNumber: string;
 }
 
 export default function AdminUsers() {
@@ -50,6 +62,28 @@ export default function AdminUsers() {
       avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150',
       emailVerified: true,
       phoneVerified: true,
+      bookings: [
+        {
+          id: 'b1',
+          bookingCode: 'AG2024001',
+          routeName: 'São Paulo - Rio de Janeiro',
+          departureDate: '2024-01-20',
+          departureTime: '08:00',
+          price: 120.00,
+          status: 'confirmed',
+          seatNumber: '12A'
+        },
+        {
+          id: 'b2',
+          bookingCode: 'AG2024015',
+          routeName: 'Rio de Janeiro - Belo Horizonte',
+          departureDate: '2024-01-25',
+          departureTime: '14:30',
+          price: 95.00,
+          status: 'confirmed',
+          seatNumber: '08B'
+        }
+      ]
     },
     {
       id: '2',
@@ -121,8 +155,14 @@ export default function AdminUsers() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [tripSearchQuery, setTripSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'user' | 'admin' | 'manager' | 'driver'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
+
+  // Log de acesso à página
+  useEffect(() => {
+    console.log('Usuário acessou a página: Usuários Administrativos');
+  }, []);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -143,10 +183,16 @@ export default function AdminUsers() {
       user.cpf.includes(searchQuery) ||
       user.phone.includes(searchQuery);
     
+    const matchesTripSearch = tripSearchQuery === '' || 
+      (user.bookings && user.bookings.some(booking => 
+        booking.routeName.toLowerCase().includes(tripSearchQuery.toLowerCase()) ||
+        booking.bookingCode.toLowerCase().includes(tripSearchQuery.toLowerCase())
+      ));
+    
     const matchesRole = filterRole === 'all' || user.role === filterRole;
     const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
     
-    return matchesSearch && matchesRole && matchesStatus;
+    return matchesSearch && matchesTripSearch && matchesRole && matchesStatus;
   });
 
   const handleAddUser = () => {
@@ -276,6 +322,24 @@ export default function AdminUsers() {
     }
   };
 
+  const getBookingStatusColor = (status: string) => {
+    switch (status) {
+      case 'confirmed': return '#10B981';
+      case 'pending': return '#F59E0B';
+      case 'cancelled': return '#EF4444';
+      default: return '#6B7280';
+    }
+  };
+
+  const getBookingStatusLabel = (status: string) => {
+    switch (status) {
+      case 'confirmed': return 'Confirmada';
+      case 'pending': return 'Pendente';
+      case 'cancelled': return 'Cancelada';
+      default: return status;
+    }
+  };
+
   const renderUserItem = ({ item }: { item: User }) => (
     <TouchableOpacity style={styles.userCard} onPress={() => handleViewDetails(item)}>
       <View style={styles.userHeader}>
@@ -386,6 +450,17 @@ export default function AdminUsers() {
             placeholder="Buscar por nome, email, CPF ou telefone..."
             value={searchQuery}
             onChangeText={setSearchQuery}
+          />
+        </View>
+        
+        {/* Trip Search Bar */}
+        <View style={[styles.searchBar, { marginTop: 12 }]}>
+          <Ionicons name="airplane" size={20} color="#6B7280" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar por viagem (rota ou código da reserva)..."
+            value={tripSearchQuery}
+            onChangeText={setTripSearchQuery}
           />
         </View>
         
@@ -671,6 +746,47 @@ export default function AdminUsers() {
                         <Text style={styles.statBoxLabel}>Total Gasto</Text>
                       </View>
                     </View>
+                  </View>
+                )}
+
+                {/* Histórico de Viagens */}
+                {selectedUser && selectedUser.bookings && selectedUser.bookings.length > 0 && (
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.detailsSectionTitle}>Histórico de Viagens</Text>
+                    {selectedUser.bookings.map((booking) => (
+                      <View key={booking.id} style={styles.bookingCard}>
+                        <View style={styles.bookingHeader}>
+                          <View style={styles.bookingInfo}>
+                            <Text style={styles.bookingRoute}>{booking.routeName}</Text>
+                            <Text style={styles.bookingCode}>#{booking.bookingCode}</Text>
+                          </View>
+                          <View style={[styles.bookingStatusBadge, { backgroundColor: getBookingStatusColor(booking.status) }]}>
+                            <Text style={styles.bookingStatusText}>
+                              {booking.status === 'confirmed' ? 'Confirmada' : 
+                               booking.status === 'pending' ? 'Pendente' : 'Cancelada'}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.bookingDetails}>
+                          <View style={styles.bookingDetailItem}>
+                            <Ionicons name="calendar" size={16} color="#6B7280" />
+                            <Text style={styles.bookingDetailText}>{booking.departureDate}</Text>
+                          </View>
+                          <View style={styles.bookingDetailItem}>
+                            <Ionicons name="time" size={16} color="#6B7280" />
+                            <Text style={styles.bookingDetailText}>{booking.departureTime}</Text>
+                          </View>
+                          <View style={styles.bookingDetailItem}>
+                            <Ionicons name="car-sport" size={16} color="#6B7280" />
+                            <Text style={styles.bookingDetailText}>Assento {booking.seatNumber}</Text>
+                          </View>
+                          <View style={styles.bookingDetailItem}>
+                            <Ionicons name="cash" size={16} color="#6B7280" />
+                            <Text style={styles.bookingDetailText}>R$ {booking.price.toFixed(2)}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))}
                   </View>
                 )}
 
@@ -1100,5 +1216,120 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  tripHistoryContainer: {
+    marginTop: 16,
+  },
+  tripCard: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#DC2626',
+  },
+  tripHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  tripRoute: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    flex: 1,
+  },
+  tripStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  tripStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  tripDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  tripInfo: {
+    flex: 1,
+  },
+  tripLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  tripValue: {
+    fontSize: 14,
+    color: '#1F2937',
+    fontWeight: '500',
+  },
+  tripPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#DC2626',
+  },
+  noTripsText: {
+    textAlign: 'center',
+    color: '#6B7280',
+    fontSize: 14,
+    fontStyle: 'italic',
+    paddingVertical: 20,
+  },
+  bookingCard: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#DC2626',
+  },
+  bookingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  bookingInfo: {
+    flex: 1,
+  },
+  bookingRoute: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  bookingCode: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  bookingStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  bookingStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  bookingDetails: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  bookingDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  bookingDetailText: {
+    fontSize: 14,
+    color: '#4B5563',
   },
 });

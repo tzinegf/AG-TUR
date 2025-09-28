@@ -99,6 +99,10 @@ export default function AdminBookings() {
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  useEffect(() => {
+    console.log('Usuário acessou a página: Reservas Administrativas');
+  }, []);
+
   const filteredBookings = bookings.filter(booking => {
     const matchesSearch = 
       booking.bookingCode.toLowerCase().includes(searchQuery.toLowerCase()) ||

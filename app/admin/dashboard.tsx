@@ -82,6 +82,7 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
+    console.log('📊 Usuário acessou a página: Dashboard Administrativo');
     fetchDashboardData();
   }, []);
 

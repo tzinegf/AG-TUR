@@ -40,6 +40,7 @@ export default function RoutesManagement() {
 
   // Fetch routes on component mount
   useEffect(() => {
+    console.log('Usuário acessou a página: Rotas Administrativas');
     fetchRoutes();
   }, []);
 

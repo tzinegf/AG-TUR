@@ -129,17 +129,18 @@ export default function AdminLoginScreen() {
 
           {/* Demo Credentials */}
           <View style={styles.demoCredentials}>
-            <Text style={styles.demoTitle}>Credenciais de Acesso:</Text>
+            <Text style={styles.demoTitle}>Credenciais de Desenvolvimento</Text>
             <View style={styles.credentialItem}>
-              <Text style={styles.credentialLabel}>Administrador:</Text>
-              <Text style={styles.demoText}>Email: admin@agtur.com</Text>
-              <Text style={styles.demoText}>Senha: admin123</Text>
+              <Text style={styles.credentialLabel}>Email:</Text>
+              <Text style={styles.demoText}>dev@agtur.local</Text>
             </View>
             <View style={styles.credentialItem}>
-              <Text style={styles.credentialLabel}>Gerente:</Text>
-              <Text style={styles.demoText}>Email: manager@agtur.com</Text>
-              <Text style={styles.demoText}>Senha: manager123</Text>
+              <Text style={styles.credentialLabel}>Senha:</Text>
+              <Text style={styles.demoText}>DevSecure2024!</Text>
             </View>
+            <Text style={[styles.demoText, { marginTop: 12, fontSize: 11, opacity: 0.7 }]}>
+              ⚠️ Apenas para desenvolvimento local
+            </Text>
           </View>
         </View>
       </KeyboardAvoidingView>

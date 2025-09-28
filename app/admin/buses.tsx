@@ -42,6 +42,7 @@ export default function AdminBuses() {
 
   // Carregar ônibus ao montar o componente
   useEffect(() => {
+    console.log('Usuário acessou a página: Ônibus Administrativos');
     loadBuses();
   }, []);
 
