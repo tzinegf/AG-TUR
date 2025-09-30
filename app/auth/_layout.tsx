@@ -1,22 +1,7 @@
-import React, { useEffect } from 'react';
-import { Stack, useRouter } from 'expo-router';
-import { useAuth } from '../../contexts/AuthContext';
+import React from 'react';
+import { Stack } from 'expo-router';
 
 export default function AuthLayout() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && user) {
-      router.replace('/(tabs)');
-    }
-  }, [user, loading, router]);
-
-  // Show loading or redirect if authenticated
-  if (loading) {
-    return null;
-  }
-
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />

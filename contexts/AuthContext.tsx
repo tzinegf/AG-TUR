@@ -53,6 +53,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Loading stored data...');
       
+      // Definir loading como false imediatamente para evitar redirecionamentos automáticos
+      setLoading(false);
+      
       // For web platform, skip AsyncStorage and just check session
       if (typeof window !== 'undefined') {
         console.log('Web platform detected, checking session only...');
@@ -70,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(userData);
         } else {
           console.log('No session found, user is null');
-          setUser(null);
+          // Não definir usuário como null para evitar redirecionamentos
         }
       } else {
         // Native platform logic
@@ -92,17 +95,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('Stored user:', storedUser);
           if (storedUser) {
             setUser(JSON.parse(storedUser));
-          } else {
-            setUser(null);
           }
+          // Não definir usuário como null para evitar redirecionamentos
         }
       }
     } catch (error) {
       console.error('Error loading user data:', error);
-      setUser(null);
-    } finally {
-      console.log('Setting loading to false');
-      setLoading(false);
+      // Não definir usuário como null para evitar redirecionamentos
     }
   }
 

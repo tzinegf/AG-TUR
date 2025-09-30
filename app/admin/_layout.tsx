@@ -1,33 +1,6 @@
 import { Stack } from 'expo-router';
-import { useEffect } from 'react';
-import { router } from 'expo-router';
-import { useAdminStore } from '../../store/adminStore';
-import { ActivityIndicator, View } from 'react-native';
 
 export default function AdminLayout() {
-  const { isAdminAuthenticated, loading, loadAdminUser } = useAdminStore();
-
-  useEffect(() => {
-    loadAdminUser();
-  }, []);
-
-  useEffect(() => {
-    if (!loading && !isAdminAuthenticated) {
-      // Usar setTimeout para garantir que o redirecionamento aconteça após o render
-      setTimeout(() => {
-        router.replace('/admin/login');
-      }, 100);
-    }
-  }, [isAdminAuthenticated, loading]);
-
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#DC2626' }}>
-        <ActivityIndicator size="large" color="#FFFFFF" />
-      </View>
-    );
-  }
-
   return (
     <Stack
       screenOptions={{

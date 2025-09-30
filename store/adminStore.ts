@@ -28,28 +28,30 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     set({ loading: true });
     
     try {
-      // Primeiro, limpar qualquer estado de autenticação anterior
-      await AsyncStorage.removeItem('adminUser');
-      await AsyncStorage.removeItem('adminSessionTimestamp');
-      set({ 
-        adminUser: null, 
-        isAdminAuthenticated: false 
-      });
-      
       // Validação básica de entrada
       if (!email || !password || email.trim() === '' || password.trim() === '') {
+        console.error('Erro de validação: Email ou senha não fornecidos');
         set({ loading: false });
         return false;
       }
       
-      // Tentar autenticação real do Supabase primeiro
+      // Tentar autenticação no Supabase
       try {
+        console.log('Iniciando autenticação para:', email);
         const { user, error } = await adminAuthService.signInAdmin(email, password);
         
-        if (error || !user) {
-          set({ loading: false });
-          return false;
+        if (error) {
+          console.error('Erro de autenticação detalhado:', error);
+          // Propagar o erro específico para o componente de UI
+          throw new Error(error);
         }
+
+        if (!user) {
+          console.error('Usuário não encontrado após autenticação');
+          throw new Error('Usuário não encontrado após autenticação bem-sucedida');
+        }
+        
+        console.log('Autenticação bem-sucedida para:', email);
 
         // Converter o formato do usuário para o formato esperado pelo store
         const adminUser: AdminUser = {
@@ -62,9 +64,13 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         // Salvar no AsyncStorage com timestamp de expiração (24 horas)
         const sessionTimestamp = Date.now().toString();
         const expirationTime = (Date.now() + 24 * 60 * 60 * 1000).toString(); // 24 horas
-        await AsyncStorage.setItem('adminUser', JSON.stringify(adminUser));
-        await AsyncStorage.setItem('adminSessionTimestamp', sessionTimestamp);
-        await AsyncStorage.setItem('adminSessionExpiration', expirationTime);
+        
+        // Salvar dados apenas após confirmação de sucesso
+        await Promise.all([
+          AsyncStorage.setItem('adminUser', JSON.stringify(adminUser)),
+          AsyncStorage.setItem('adminSessionTimestamp', sessionTimestamp),
+          AsyncStorage.setItem('adminSessionExpiration', expirationTime)
+        ]);
         
         set({ 
           adminUser, 
@@ -77,7 +83,6 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         console.error('Falha na autenticação Supabase:', supabaseError);
         
         // MODO DESENVOLVIMENTO SEGURO: Apenas para desenvolvimento local
-        // Verificar se estamos em ambiente de desenvolvimento
         const isDevelopment = __DEV__ || process.env.NODE_ENV === 'development';
         
         if (isDevelopment && email === 'dev@agtur.local' && password === 'DevSecure2024!') {
@@ -93,9 +98,12 @@ export const useAdminStore = create<AdminState>((set, get) => ({
           // Salvar no AsyncStorage com timestamp de expiração curta (2 horas para dev)
           const sessionTimestamp = Date.now().toString();
           const expirationTime = (Date.now() + 2 * 60 * 60 * 1000).toString(); // 2 horas
-          await AsyncStorage.setItem('adminUser', JSON.stringify(adminUser));
-          await AsyncStorage.setItem('adminSessionTimestamp', sessionTimestamp);
-          await AsyncStorage.setItem('adminSessionExpiration', expirationTime);
+          
+          await Promise.all([
+            AsyncStorage.setItem('adminUser', JSON.stringify(adminUser)),
+            AsyncStorage.setItem('adminSessionTimestamp', sessionTimestamp),
+            AsyncStorage.setItem('adminSessionExpiration', expirationTime)
+          ]);
           
           set({ 
             adminUser, 

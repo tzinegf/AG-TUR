@@ -9,16 +9,7 @@ export default function Index() {
   useEffect(() => {
     console.log('Index component loaded successfully');
     setDebugInfo('Componente Index carregado com sucesso');
-    
-    // Test automatic redirect after 5 seconds (increased for testing)
-    const timer = setTimeout(() => {
-      console.log('Auto-redirecting to /auth');
-      setDebugInfo('Redirecionamento automático para /auth...');
-      router.replace('/auth');
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [router]);
+  }, []);
 
   const handleAuthNavigation = () => {
     console.log('Manual navigation to /auth');
@@ -39,6 +30,17 @@ export default function Index() {
     } catch (error) {
       console.error('Navigation error:', error);
       setDebugInfo('Erro na navegação para /(tabs)');
+    }
+  };
+
+  const handleAdminNavigation = () => {
+    console.log('Manual navigation to /admin');
+    setDebugInfo('Navegando para /admin...');
+    try {
+      router.push('/admin');
+    } catch (error) {
+      console.error('Navigation error:', error);
+      setDebugInfo('Erro na navegação para /admin');
     }
   };
 
@@ -65,6 +67,16 @@ export default function Index() {
         onPress={handleTabsNavigation}
       >
         <Text style={styles.buttonText}>Ir para Tabs</Text>
+      </Pressable>
+
+      <Pressable 
+        style={({ pressed }) => [
+          styles.button,
+          pressed && styles.buttonPressed
+        ]} 
+        onPress={handleAdminNavigation}
+      >
+        <Text style={styles.buttonText}>Ir para Admin</Text>
       </Pressable>
     </View>
   );

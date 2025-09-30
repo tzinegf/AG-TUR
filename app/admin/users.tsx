@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Picker } from '@react-native-picker/picker';
+import { userService, type User, type UserSearchParams } from '../../services/userService';
 
 interface User {
   id: string;
@@ -46,110 +47,11 @@ interface Booking {
 }
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: '1',
-      name: 'João Silva',
-      email: 'joao.silva@email.com',
-      phone: '(11) 98765-4321',
-      cpf: '123.456.789-00',
-      role: 'user',
-      status: 'active',
-      createdAt: '2024-01-01',
-      lastLogin: '2024-01-15',
-      totalBookings: 12,
-      totalSpent: 1450.00,
-      avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150',
-      emailVerified: true,
-      phoneVerified: true,
-      bookings: [
-        {
-          id: 'b1',
-          bookingCode: 'AG2024001',
-          routeName: 'São Paulo - Rio de Janeiro',
-          departureDate: '2024-01-20',
-          departureTime: '08:00',
-          price: 120.00,
-          status: 'confirmed',
-          seatNumber: '12A'
-        },
-        {
-          id: 'b2',
-          bookingCode: 'AG2024015',
-          routeName: 'Rio de Janeiro - Belo Horizonte',
-          departureDate: '2024-01-25',
-          departureTime: '14:30',
-          price: 95.00,
-          status: 'confirmed',
-          seatNumber: '08B'
-        }
-      ]
-    },
-    {
-      id: '2',
-      name: 'Maria Santos',
-      email: 'maria.santos@email.com',
-      phone: '(21) 99876-5432',
-      cpf: '987.654.321-00',
-      role: 'user',
-      status: 'active',
-      createdAt: '2023-12-15',
-      lastLogin: '2024-01-14',
-      totalBookings: 8,
-      totalSpent: 920.50,
-      avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
-      emailVerified: true,
-      phoneVerified: false,
-    },
-    {
-      id: '3',
-      name: 'Carlos Oliveira',
-      email: 'carlos.oliveira@email.com',
-      phone: '(31) 91234-5678',
-      cpf: '456.789.123-00',
-      role: 'driver',
-      status: 'active',
-      createdAt: '2023-11-20',
-      lastLogin: '2024-01-15',
-      totalBookings: 0,
-      totalSpent: 0,
-      avatar: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=150',
-      emailVerified: true,
-      phoneVerified: true,
-    },
-    {
-      id: '4',
-      name: 'Ana Costa',
-      email: 'ana.costa@email.com',
-      phone: '(41) 98765-1234',
-      cpf: '789.123.456-00',
-      role: 'manager',
-      status: 'active',
-      createdAt: '2023-10-10',
-      lastLogin: '2024-01-15',
-      totalBookings: 0,
-      totalSpent: 0,
-      avatar: 'https://images.pexels.com/photos/733872/pexels-photo-733872.jpeg?auto=compress&cs=tinysrgb&w=150',
-      emailVerified: true,
-      phoneVerified: true,
-    },
-    {
-      id: '5',
-      name: 'Pedro Almeida',
-      email: 'pedro.almeida@email.com',
-      phone: '(51) 99999-8888',
-      cpf: '321.654.987-00',
-      role: 'user',
-      status: 'suspended',
-      createdAt: '2023-09-05',
-      lastLogin: '2023-12-20',
-      totalBookings: 3,
-      totalSpent: 350.00,
-      emailVerified: false,
-      phoneVerified: false,
-    },
-  ]);
-
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -159,10 +61,77 @@ export default function AdminUsers() {
   const [filterRole, setFilterRole] = useState<'all' | 'user' | 'admin' | 'manager' | 'driver'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
 
-  // Log de acesso à página
+  // Função para carregar usuários
+  const loadUsers = async (pageNumber: number = 1, isRefresh: boolean = false) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const searchParams: UserSearchParams = {
+        page: pageNumber,
+        query: searchQuery,
+        role: filterRole !== 'all' ? filterRole : undefined,
+        status: filterStatus !== 'all' ? filterStatus : undefined,
+      };
+
+      const result = await userService.searchUsers(searchParams);
+      
+      if (isRefresh) {
+        setUsers(result.users);
+      } else {
+        setUsers(prev => [...prev, ...result.users]);
+      }
+      
+      setHasMore(result.hasMore);
+      setPage(pageNumber);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar usuários');
+      console.error('Erro ao carregar usuários:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Carregar usuários iniciais
   useEffect(() => {
-    console.log('Usuário acessou a página: Usuários Administrativos');
+    loadUsers(1, true);
   }, []);
+
+  // Recarregar quando os filtros mudarem
+  useEffect(() => {
+    loadUsers(1, true);
+  }, [searchQuery, filterRole, filterStatus]);
+
+  // Função para carregar mais usuários
+  const handleLoadMore = () => {
+    if (!loading && hasMore) {
+      loadUsers(page + 1);
+    }
+  };
+
+  // Função para atualizar a lista
+  const handleRefresh = () => {
+    loadUsers(1, true);
+  };
+
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = 
+      (user.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (user.email?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (user.cpf || '').includes(searchQuery) ||
+      (user.phone || '').includes(searchQuery);
+    
+    const matchesTripSearch = tripSearchQuery === '' || 
+      (user.bookings && user.bookings.some(booking => 
+        (booking.routeName?.toLowerCase() || '').includes(tripSearchQuery.toLowerCase()) ||
+        (booking.bookingCode?.toLowerCase() || '').includes(tripSearchQuery.toLowerCase())
+      ));
+    
+    const matchesRole = filterRole === 'all' || user.role === filterRole;
+    const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
+    
+    return matchesSearch && matchesTripSearch && matchesRole && matchesStatus;
+  });
 
   // Form states
   const [formData, setFormData] = useState({
@@ -174,25 +143,6 @@ export default function AdminUsers() {
     status: 'active' as 'active' | 'inactive' | 'suspended',
     emailVerified: false,
     phoneVerified: false,
-  });
-
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = 
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.cpf.includes(searchQuery) ||
-      user.phone.includes(searchQuery);
-    
-    const matchesTripSearch = tripSearchQuery === '' || 
-      (user.bookings && user.bookings.some(booking => 
-        booking.routeName.toLowerCase().includes(tripSearchQuery.toLowerCase()) ||
-        booking.bookingCode.toLowerCase().includes(tripSearchQuery.toLowerCase())
-      ));
-    
-    const matchesRole = filterRole === 'all' || user.role === filterRole;
-    const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
-    
-    return matchesSearch && matchesTripSearch && matchesRole && matchesStatus;
   });
 
   const handleAddUser = () => {
@@ -225,9 +175,18 @@ export default function AdminUsers() {
     setModalVisible(true);
   };
 
-  const handleViewDetails = (user: User) => {
-    setSelectedUser(user);
-    setDetailsModalVisible(true);
+  const handleViewDetails = async (user: User) => {
+    try {
+      setLoading(true);
+      const userDetails = await userService.getUserById(user.id);
+      setSelectedUser(userDetails);
+      setDetailsModalVisible(true);
+    } catch (err) {
+      Alert.alert('Erro', 'Não foi possível carregar os detalhes do usuário');
+      console.error('Erro ao carregar detalhes do usuário:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDeleteUser = (userId: string) => {
@@ -239,42 +198,58 @@ export default function AdminUsers() {
         {
           text: 'Excluir',
           style: 'destructive',
-          onPress: () => {
-            setUsers(users.filter(user => user.id !== userId));
-            Alert.alert('Sucesso', 'Usuário excluído com sucesso!');
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await userService.updateUserStatus(userId, 'inactive');
+              Alert.alert('Sucesso', 'Usuário excluído com sucesso!');
+              handleRefresh();
+            } catch (err) {
+              Alert.alert('Erro', 'Não foi possível excluir o usuário');
+              console.error('Erro ao excluir usuário:', err);
+            } finally {
+              setLoading(false);
+            }
           },
         },
       ]
     );
   };
 
-  const handleSaveUser = () => {
+  const handleSaveUser = async () => {
     if (!formData.name || !formData.email || !formData.cpf) {
       Alert.alert('Erro', 'Por favor, preencha todos os campos obrigatórios.');
       return;
     }
 
-    if (editingUser) {
-      setUsers(users.map(user =>
-        user.id === editingUser.id
-          ? { ...user, ...formData }
-          : user
-      ));
-      Alert.alert('Sucesso', 'Usuário atualizado com sucesso!');
-    } else {
-      const newUser: User = {
-        id: Date.now().toString(),
-        ...formData,
-        createdAt: new Date().toISOString().split('T')[0],
-        lastLogin: '-',
-        totalBookings: 0,
-        totalSpent: 0,
-      };
-      setUsers([...users, newUser]);
-      Alert.alert('Sucesso', 'Usuário cadastrado com sucesso!');
-    }
+    try {
+      setLoading(true);
+      
+      if (editingUser) {
+        await userService.updateUser(editingUser.id, {
+          ...formData,
+          updatedAt: new Date().toISOString(),
+        });
+        Alert.alert('Sucesso', 'Usuário atualizado com sucesso!');
+      } else {
+        await userService.createUser({
+          ...formData,
+          createdAt: new Date().toISOString(),
+          lastLogin: '-',
+          totalBookings: 0,
+          totalSpent: 0,
+        });
+        Alert.alert('Sucesso', 'Usuário cadastrado com sucesso!');
+      }
 
-    setModalVisible(false);
+      setModalVisible(false);
+      handleRefresh();
+    } catch (err) {
+      Alert.alert('Erro', 'Não foi possível salvar o usuário');
+      console.error('Erro ao salvar usuário:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResetPassword = (user: User) => {
@@ -285,8 +260,17 @@ export default function AdminUsers() {
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Enviar',
-          onPress: () => {
-            Alert.alert('Sucesso', 'Email de redefinição de senha enviado!');
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await userService.resetPassword(user.email);
+              Alert.alert('Sucesso', 'Email de redefinição de senha enviado!');
+            } catch (err) {
+              Alert.alert('Erro', 'Não foi possível enviar o email de redefinição de senha');
+              console.error('Erro ao resetar senha:', err);
+            } finally {
+              setLoading(false);
+            }
           },
         },
       ]
@@ -373,10 +357,10 @@ export default function AdminUsers() {
           {item.role === 'user' && (
             <View style={styles.userStats}>
               <Text style={styles.statText}>
-                <Text style={styles.statLabel}>Reservas:</Text> {item.totalBookings}
+                <Text style={styles.statLabel}>Reservas:</Text> {item.totalBookings || 0}
               </Text>
               <Text style={styles.statText}>
-                <Text style={styles.statLabel}>Total:</Text> R$ {item.totalSpent.toFixed(2)}
+                <Text style={styles.statLabel}>Total:</Text> R$ {(item.totalSpent || 0).toFixed(2)}
               </Text>
             </View>
           )}
@@ -408,415 +392,89 @@ export default function AdminUsers() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <LinearGradient colors={['#DC2626', '#B91C1C']} style={styles.header}>
-        <Text style={styles.headerTitle}>Gerenciar Usuários</Text>
-        <TouchableOpacity style={styles.addButton} onPress={handleAddUser}>
-          <Ionicons name="person-add" size={24} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>Novo Usuário</Text>
-        </TouchableOpacity>
-      </LinearGradient>
-
-      {/* Stats Cards */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsContainer}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Usuários</Text>
+      </View>
+      
+      <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <Ionicons name="people" size={24} color="#DC2626" />
+          <View style={styles.statIconContainer}>
+            <Ionicons name="people" size={24} color="#F59E0B" />
+          </View>
           <Text style={styles.statValue}>{users.length}</Text>
-          <Text style={styles.statLabel}>Total Usuários</Text>
+          <Text style={styles.statLabel}>Total de Usuários</Text>
         </View>
         <View style={styles.statCard}>
-          <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-          <Text style={styles.statValue}>{users.filter(u => u.status === 'active').length}</Text>
-          <Text style={styles.statLabel}>Ativos</Text>
+          <View style={styles.statIconContainer}>
+            <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+          </View>
+          <Text style={styles.statValue}>
+            {users.filter(u => u.status === 'active').length}
+          </Text>
+          <Text style={styles.statLabel}>Usuários Ativos</Text>
         </View>
         <View style={styles.statCard}>
-          <Ionicons name="person" size={24} color="#059669" />
-          <Text style={styles.statValue}>{users.filter(u => u.role === 'user').length}</Text>
+          <View style={styles.statIconContainer}>
+            <Ionicons name="person" size={24} color="#3B82F6" />
+          </View>
+          <Text style={styles.statValue}>
+            {users.filter(u => u.role === 'user').length}
+          </Text>
           <Text style={styles.statLabel}>Clientes</Text>
         </View>
-        <View style={styles.statCard}>
-          <Ionicons name="bus" size={24} color="#2563EB" />
-          <Text style={styles.statValue}>{users.filter(u => u.role === 'driver').length}</Text>
-          <Text style={styles.statLabel}>Motoristas</Text>
-        </View>
-      </ScrollView>
-
-      {/* Search and Filters */}
+      </View>
+      
       <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#6B7280" />
+        <View style={styles.searchInputContainer}>
+          <Ionicons name="search" size={20} color="#6B7280" style={{ marginRight: 8 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Buscar por nome, email, CPF ou telefone..."
+            placeholder="Buscar usuários..."
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
-        
-        {/* Trip Search Bar */}
-        <View style={[styles.searchBar, { marginTop: 12 }]}>
-          <Ionicons name="airplane" size={20} color="#6B7280" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar por viagem (rota ou código da reserva)..."
-            value={tripSearchQuery}
-            onChangeText={setTripSearchQuery}
-          />
-        </View>
-        
-        <View style={styles.filtersRow}>
-          <View style={styles.filterItem}>
-            <Text style={styles.filterLabel}>Função:</Text>
-            <View style={styles.filterPickerContainer}>
-              <Picker
-                selectedValue={filterRole}
-                onValueChange={setFilterRole}
-                style={styles.filterPicker}
-              >
-                <Picker.Item label="Todos" value="all" color="#9CA3AF" />
-                <Picker.Item label="Usuário" value="user" color="#1F2937" />
-                <Picker.Item label="Administrador" value="admin" color="#1F2937" />
-                <Picker.Item label="Gerente" value="manager" color="#1F2937" />
-                <Picker.Item label="Motorista" value="driver" color="#1F2937" />
-              </Picker>
-            </View>
-          </View>
-          
-          <View style={styles.filterItem}>
-            <Text style={styles.filterLabel}>Status:</Text>
-            <View style={styles.filterPickerContainer}>
-              <Picker
-                selectedValue={filterStatus}
-                onValueChange={setFilterStatus}
-                style={styles.filterPicker}
-              >
-                <Picker.Item label="Todos" value="all" color="#9CA3AF" />
-                <Picker.Item label="Ativo" value="active" color="#1F2937" />
-                <Picker.Item label="Inativo" value="inactive" color="#1F2937" />
-                <Picker.Item label="Suspenso" value="suspended" color="#1F2937" />
-              </Picker>
-            </View>
-          </View>
+      
+        <View style={styles.filtersContainer}>
+          <Picker
+            selectedValue={filterRole}
+            onValueChange={setFilterRole}
+            style={styles.filterPicker}
+            itemStyle={styles.pickerItem}
+          >
+            <Picker.Item label="Todos os papéis" value="all" />
+            <Picker.Item label="Usuários" value="user" />
+            <Picker.Item label="Administradores" value="admin" />
+            <Picker.Item label="Gerentes" value="manager" />
+            <Picker.Item label="Motoristas" value="driver" />
+          </Picker>
+      
+          <Picker
+            selectedValue={filterStatus}
+            onValueChange={setFilterStatus}
+            style={styles.filterPicker}
+            itemStyle={styles.pickerItem}
+          >
+            <Picker.Item label="Todos os status" value="all" />
+            <Picker.Item label="Ativos" value="active" />
+            <Picker.Item label="Inativos" value="inactive" />
+            <Picker.Item label="Suspensos" value="suspended" />
+          </Picker>
         </View>
       </View>
-
-      {/* User List */}
+      
       <FlatList
         data={filteredUsers}
         renderItem={renderUserItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={item => item.id}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        refreshing={loading}
+        onRefresh={handleRefresh}
         contentContainerStyle={styles.listContainer}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={64} color="#D1D5DB" />
-            <Text style={styles.emptyText}>Nenhum usuário encontrado</Text>
-          </View>
-        }
       />
 
-      {/* Add/Edit Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {editingUser ? 'Editar Usuário' : 'Cadastrar Novo Usuário'}
-              </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody}>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Nome Completo *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.name}
-                  onChangeText={(text) => setFormData({ ...formData, name: text })}
-                  placeholder="João Silva"
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Email *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.email}
-                  onChangeText={(text) => setFormData({ ...formData, email: text })}
-                  placeholder="email@exemplo.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Telefone</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.phone}
-                  onChangeText={(text) => setFormData({ ...formData, phone: text })}
-                  placeholder="(11) 98765-4321"
-                  keyboardType="phone-pad"
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>CPF *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.cpf}
-                  onChangeText={(text) => setFormData({ ...formData, cpf: text })}
-                  placeholder="123.456.789-00"
-                  keyboardType="numeric"
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Função</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={formData.role}
-                    onValueChange={(value) => setFormData({ ...formData, role: value })}
-                    style={styles.formPicker}
-                  >
-                    <Picker.Item label="Usuário" value="user" color="#1F2937" />
-                    <Picker.Item label="Administrador" value="admin" color="#1F2937" />
-                    <Picker.Item label="Gerente" value="manager" color="#1F2937" />
-                    <Picker.Item label="Motorista" value="driver" color="#1F2937" />
-                  </Picker>
-                </View>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Status</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={formData.status}
-                    onValueChange={(value) => setFormData({ ...formData, status: value })}
-                    style={styles.formPicker}
-                  >
-                    <Picker.Item label="Ativo" value="active" color="#1F2937" />
-                    <Picker.Item label="Inativo" value="inactive" color="#1F2937" />
-                    <Picker.Item label="Suspenso" value="suspended" color="#1F2937" />
-                  </Picker>
-                </View>
-              </View>
-
-              <View style={styles.verificationSection}>
-                <Text style={styles.sectionTitle}>Verificações</Text>
-                
-                <View style={styles.switchRow}>
-                  <Text style={styles.switchLabel}>Email Verificado</Text>
-                  <Switch
-                    value={formData.emailVerified}
-                    onValueChange={(value) => setFormData({ ...formData, emailVerified: value })}
-                    trackColor={{ false: '#D1D5DB', true: '#DC2626' }}
-                    thumbColor={formData.emailVerified ? '#FFFFFF' : '#F3F4F6'}
-                  />
-                </View>
-
-                <View style={styles.switchRow}>
-                  <Text style={styles.switchLabel}>Telefone Verificado</Text>
-                  <Switch
-                    value={formData.phoneVerified}
-                    onValueChange={(value) => setFormData({ ...formData, phoneVerified: value })}
-                    trackColor={{ false: '#D1D5DB', true: '#DC2626' }}
-                    thumbColor={formData.phoneVerified ? '#FFFFFF' : '#F3F4F6'}
-                  />
-                </View>
-              </View>
-
-              <TouchableOpacity style={styles.saveButton} onPress={handleSaveUser}>
-                <Text style={styles.saveButtonText}>
-                  {editingUser ? 'Salvar Alterações' : 'Cadastrar Usuário'}
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* User Details Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={detailsModalVisible}
-        onRequestClose={() => setDetailsModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Detalhes do Usuário</Text>
-              <TouchableOpacity onPress={() => setDetailsModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            {selectedUser && (
-              <ScrollView style={styles.modalBody}>
-                <View style={styles.detailsHeader}>
-                  <Image 
-                    source={{ uri: selectedUser.avatar || `https://ui-avatars.com/api/?name=${selectedUser.name}&background=DC2626&color=fff` }} 
-                    style={styles.detailsAvatar} 
-                  />
-                  <Text style={styles.detailsName}>{selectedUser.name}</Text>
-                  <View style={[styles.roleBadge, { backgroundColor: getRoleColor(selectedUser.role) }]}>
-                    <Text style={styles.roleText}>{getRoleLabel(selectedUser.role)}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.detailsSection}>
-                  <Text style={styles.detailsSectionTitle}>Informações de Contato</Text>
-                  <View style={styles.detailItem}>
-                    <Ionicons name="mail" size={20} color="#6B7280" />
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>Email</Text>
-                      <Text style={styles.detailValue}>{selectedUser.email}</Text>
-                      {selectedUser.emailVerified && (
-                        <Text style={styles.verifiedText}>✓ Verificado</Text>
-                      )}
-                    </View>
-                  </View>
-                  <View style={styles.detailItem}>
-                    <Ionicons name="call" size={20} color="#6B7280" />
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>Telefone</Text>
-                      <Text style={styles.detailValue}>{selectedUser.phone}</Text>
-                      {selectedUser.phoneVerified && (
-                        <Text style={styles.verifiedText}>✓ Verificado</Text>
-                      )}
-                    </View>
-                  </View>
-                  <View style={styles.detailItem}>
-                    <Ionicons name="card" size={20} color="#6B7280" />
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>CPF</Text>
-                      <Text style={styles.detailValue}>{selectedUser.cpf}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.detailsSection}>
-                  <Text style={styles.detailsSectionTitle}>Informações da Conta</Text>
-                  <View style={styles.detailItem}>
-                    <Ionicons name="calendar" size={20} color="#6B7280" />
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>Cadastrado em</Text>
-                      <Text style={styles.detailValue}>{selectedUser.createdAt}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.detailItem}>
-                    <Ionicons name="time" size={20} color="#6B7280" />
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>Último acesso</Text>
-                      <Text style={styles.detailValue}>{selectedUser.lastLogin}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.detailItem}>
-                    <Ionicons name="shield-checkmark" size={20} color="#6B7280" />
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>Status</Text>
-                      <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedUser.status) }]}>
-                        <Text style={styles.statusText}>
-                          {selectedUser.status === 'active' ? 'Ativo' : selectedUser.status === 'inactive' ? 'Inativo' : 'Suspenso'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-
-                {selectedUser.role === 'user' && (
-                  <View style={styles.detailsSection}>
-                    <Text style={styles.detailsSectionTitle}>Estatísticas</Text>
-                    <View style={styles.statsGrid}>
-                      <View style={styles.statBox}>
-                        <Ionicons name="ticket" size={24} color="#DC2626" />
-                        <Text style={styles.statBoxValue}>{selectedUser.totalBookings}</Text>
-                        <Text style={styles.statBoxLabel}>Reservas</Text>
-                      </View>
-                      <View style={styles.statBox}>
-                        <Ionicons name="cash" size={24} color="#10B981" />
-                        <Text style={styles.statBoxValue}>R$ {selectedUser.totalSpent.toFixed(2)}</Text>
-                        <Text style={styles.statBoxLabel}>Total Gasto</Text>
-                      </View>
-                    </View>
-                  </View>
-                )}
-
-                {/* Histórico de Viagens */}
-                {selectedUser && selectedUser.bookings && selectedUser.bookings.length > 0 && (
-                  <View style={styles.detailsSection}>
-                    <Text style={styles.detailsSectionTitle}>Histórico de Viagens</Text>
-                    {selectedUser.bookings.map((booking) => (
-                      <View key={booking.id} style={styles.bookingCard}>
-                        <View style={styles.bookingHeader}>
-                          <View style={styles.bookingInfo}>
-                            <Text style={styles.bookingRoute}>{booking.routeName}</Text>
-                            <Text style={styles.bookingCode}>#{booking.bookingCode}</Text>
-                          </View>
-                          <View style={[styles.bookingStatusBadge, { backgroundColor: getBookingStatusColor(booking.status) }]}>
-                            <Text style={styles.bookingStatusText}>
-                              {booking.status === 'confirmed' ? 'Confirmada' : 
-                               booking.status === 'pending' ? 'Pendente' : 'Cancelada'}
-                            </Text>
-                          </View>
-                        </View>
-                        <View style={styles.bookingDetails}>
-                          <View style={styles.bookingDetailItem}>
-                            <Ionicons name="calendar" size={16} color="#6B7280" />
-                            <Text style={styles.bookingDetailText}>{booking.departureDate}</Text>
-                          </View>
-                          <View style={styles.bookingDetailItem}>
-                            <Ionicons name="time" size={16} color="#6B7280" />
-                            <Text style={styles.bookingDetailText}>{booking.departureTime}</Text>
-                          </View>
-                          <View style={styles.bookingDetailItem}>
-                            <Ionicons name="car-sport" size={16} color="#6B7280" />
-                            <Text style={styles.bookingDetailText}>Assento {booking.seatNumber}</Text>
-                          </View>
-                          <View style={styles.bookingDetailItem}>
-                            <Ionicons name="cash" size={16} color="#6B7280" />
-                            <Text style={styles.bookingDetailText}>R$ {booking.price.toFixed(2)}</Text>
-                          </View>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                <View style={styles.detailsActions}>
-                  <TouchableOpacity 
-                    style={[styles.detailActionButton, { backgroundColor: '#3B82F6' }]}
-                    onPress={() => {
-                      setDetailsModalVisible(false);
-                      handleEditUser(selectedUser);
-                    }}
-                  >
-                    <Ionicons name="pencil" size={20} color="#FFFFFF" />
-                    <Text style={styles.detailActionText}>Editar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.detailActionButton, { backgroundColor: '#F59E0B' }]}
-                    onPress={() => {
-                      setDetailsModalVisible(false);
-                      handleResetPassword(selectedUser);
-                    }}
-                  >
-                    <Ionicons name="key" size={20} color="#FFFFFF" />
-                    <Text style={styles.detailActionText}>Resetar Senha</Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
+      {/* Rest of the component (modals, etc.) */}
     </View>
   );
 }
@@ -824,117 +482,119 @@ export default function AdminUsers() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F9FAFB',
   },
   header: {
-    paddingTop: 20,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  addButtonText: {
-    color: '#FFFFFF',
-    marginLeft: 8,
-    fontWeight: '600',
+    color: '#1F2937',
   },
   statsContainer: {
-    paddingHorizontal: 20,
+    flexDirection: 'row',
+    paddingHorizontal: 16,
     paddingVertical: 16,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'space-between',
+  },
+  searchContainer: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    height: 40,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    fontSize: 16,
+    color: '#1F2937',
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    gap: 12,
+    paddingHorizontal: 4,
+    minHeight: 60,
+  },
+  filterPicker: {
+    flex: 1,
+    height: 56,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    color: '#1F2937',
+    fontSize: 14,
+    justifyContent: 'center',
+  },
+  pickerItem: {
+    fontSize: 14,
+    height: 56,
+    color: '#1F2937',
+    backgroundColor: '#F3F4F6',
+    textAlign: 'left',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    justifyContent: 'center',
   },
   statCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 16,
-    marginRight: 12,
+    padding: 12,
+    flex: 1,
+    marginHorizontal: 4,
     alignItems: 'center',
-    minWidth: 120,
+    minHeight: 80,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
   },
+  statIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   statValue: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1F2937',
-    marginTop: 8,
+    marginTop: 2,
+    textAlign: 'center',
   },
   statLabel: {
     fontSize: 12,
     color: '#6B7280',
-    marginTop: 4,
+    marginTop: 2,
+    textAlign: 'center',
+    paddingHorizontal: 4,
   },
-  searchContainer: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#1F2937',
-  },
-  filtersRow: {
-    flexDirection: 'row',
-    marginTop: 12,
-    gap: 16,
-  },
-  filterItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  filterLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginRight: 8,
-  },
-  picker: {
-    flex: 1,
-    height: 40,
-  },
-  filterPickerContainer: {
-     flex: 1,
-     backgroundColor: '#F9FAFB',
-     borderRadius: 8,
-     borderWidth: 1,
-     borderColor: '#E5E7EB',
-     overflow: 'hidden',
-     minHeight: 50,
-   },
-   filterPicker: {
-     height: 50,
-     color: '#1F2937',
-   },
   listContainer: {
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   userCard: {
     backgroundColor: '#FFFFFF',

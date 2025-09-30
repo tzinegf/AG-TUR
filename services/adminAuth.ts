@@ -10,6 +10,28 @@ export interface AdminUser {
 export const adminAuthService = {
   async signInAdmin(email: string, password: string): Promise<{ user: AdminUser | null; error: string | null }> {
     try {
+      // Verificar conexão com Supabase e configuração
+      console.log('Verificando conexão com Supabase...');
+      if (!supabase.auth) {
+        console.error('Erro: Cliente Supabase não está configurado corretamente');
+        return { user: null, error: 'Erro de configuração do servidor. Entre em contato com o suporte.' };
+      }
+
+      // Verificar conexão com a API do Supabase
+      const { error: healthError } = await supabase.from('profiles').select('count').limit(1);
+      if (healthError) {
+        console.error('Erro de conexão com Supabase:', healthError.message);
+        if (healthError.message.includes('JWT')) {
+          return { user: null, error: 'Erro de autenticação do servidor. Tente novamente mais tarde.' };
+        }
+        if (healthError.message.includes('network')) {
+          return { user: null, error: 'Erro de conexão com o servidor. Verifique sua internet.' };
+        }
+        return { user: null, error: 'Erro de conexão com o servidor. Tente novamente.' };
+      }
+      
+      console.log('Conexão com Supabase estabelecida com sucesso');
+
       // Autenticar com Supabase
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
@@ -17,11 +39,15 @@ export const adminAuthService = {
       });
 
       if (authError) {
-        return { user: null, error: authError.message };
+        console.error('Erro de autenticação Supabase:', authError.message);
+        if (authError.message.includes('Invalid login credentials')) {
+          return { user: null, error: 'Credenciais de login inválidas. Verifique seu email e senha.' };
+        }
+        return { user: null, error: `Erro de autenticação: ${authError.message}` };
       }
 
       if (!authData.user) {
-        return { user: null, error: 'Falha na autenticação' };
+        return { user: null, error: 'Usuário não encontrado' };
       }
 
       // Verificar se o usuário tem perfil de admin
@@ -29,25 +55,40 @@ export const adminAuthService = {
         .from('profiles')
         .select('*')
         .eq('id', authData.user.id)
-        .eq('role', 'admin')
         .single();
 
-      if (profileError || !profile) {
+      if (profileError) {
+        console.error('Erro ao buscar perfil:', profileError);
+        return { user: null, error: 'Erro ao verificar permissões de administrador' };
+      }
+
+      if (!profile) {
+        console.error('Perfil não encontrado para o usuário:', authData.user.id);
         await supabase.auth.signOut();
-        return { user: null, error: 'Acesso negado. Usuário não é administrador.' };
+        return { user: null, error: 'Perfil de usuário não encontrado.' };
+      }
+
+      // Verificar permissões de admin de forma mais flexível
+      const userRole = (profile.role || profile.user_role || profile.type || '').toLowerCase();
+      const isAdmin = userRole === 'admin' || userRole === 'administrator' || userRole === 'administrador';
+
+      if (!isAdmin) {
+        console.error('Usuário não tem permissão de admin. Role:', userRole);
+        await supabase.auth.signOut();
+        return { user: null, error: 'Acesso negado. Usuário não tem permissões de administrador.' };
       }
 
       const adminUser: AdminUser = {
         id: profile.id,
-        email: profile.email,
-        name: profile.full_name,
-        role: profile.role as 'admin' | 'manager'
+        email: profile.email || authData.user.email || '',
+        name: profile.full_name || profile.name || 'Admin',
+        role: 'admin'
       };
 
       return { user: adminUser, error: null };
     } catch (error) {
       console.error('Erro na autenticação admin:', error);
-      return { user: null, error: 'Erro interno do servidor' };
+      return { user: null, error: 'Erro interno do servidor. Tente novamente.' };
     }
   },
 
