@@ -15,36 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Picker } from '@react-native-picker/picker';
-import { userService, type User, type UserSearchParams } from '../../services/userService';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  cpf: string;
-  role: 'user' | 'admin' | 'manager' | 'driver';
-  status: 'active' | 'inactive' | 'suspended';
-  createdAt: string;
-  lastLogin: string;
-  totalBookings: number;
-  totalSpent: number;
-  avatar?: string;
-  emailVerified: boolean;
-  phoneVerified: boolean;
-  bookings?: Booking[];
-}
-
-interface Booking {
-  id: string;
-  bookingCode: string;
-  routeName: string;
-  departureDate: string;
-  departureTime: string;
-  price: number;
-  status: 'confirmed' | 'pending' | 'cancelled';
-  seatNumber: string;
-}
+import { userService, type User, type UserSearchParams, type Booking } from '../../services/userService';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);

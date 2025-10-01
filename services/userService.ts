@@ -15,6 +15,19 @@ export interface User {
   lastLogin: string;
   totalBookings: number;
   totalSpent: number;
+  avatar?: string;
+  bookings?: Booking[];
+}
+
+export interface Booking {
+  id: string;
+  bookingCode: string;
+  routeName: string;
+  departureDate: string;
+  departureTime: string;
+  price: number;
+  status: 'confirmed' | 'pending' | 'cancelled';
+  seatNumber: string;
 }
 
 export interface UserSearchParams {

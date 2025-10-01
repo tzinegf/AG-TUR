@@ -1,9 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  Modal,
+  ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Modal from 'react-native-modal';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { busRoutesService } from '../../services/busRoutes';
-import { BusRoute, supabase } from '../../lib/supabase';
+import { BusRoute } from '../../lib/supabase';
+import { mask } from 'react-native-mask-text';
 
 interface RouteDisplay {
   id: string;
@@ -20,6 +32,7 @@ interface RouteDisplay {
 }
 
 export default function RoutesManagement() {
+  const router = useRouter();
   const [routes, setRoutes] = useState<RouteDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +48,8 @@ export default function RoutesManagement() {
     arrival_time: '',
     price: '',
     bus_company: '',
-    bus_type: 'convencional'
+    bus_type: 'convencional',
+    amenities: [] as string[]
   });
 
   // Fetch routes on component mount
@@ -92,9 +106,8 @@ export default function RoutesManagement() {
   };
 
   const toggleModal = () => {
-    setModalVisible(!isModalVisible);
-    if (!isModalVisible) {
-      // Reset form when opening modal
+    if (isModalVisible) {
+      // Fechando modal - limpar formulário
       setFormData({
         origin: '',
         destination: '',
@@ -102,9 +115,63 @@ export default function RoutesManagement() {
         arrival_time: '',
         price: '',
         bus_company: '',
-        bus_type: 'convencional'
+        bus_type: 'convencional',
+        amenities: []
       });
       setEditingRoute(null);
+    }
+    setModalVisible(!isModalVisible);
+  };
+
+  const handleCancel = () => {
+    // Verificar se há dados preenchidos no formulário
+    const hasData = formData.origin || formData.destination || formData.departure || 
+                   formData.arrival_time || formData.price || formData.bus_company;
+    
+    if (hasData) {
+      Alert.alert(
+        'Cancelar Edição',
+        'Você tem alterações não salvas. Deseja realmente cancelar?',
+        [
+          {
+            text: 'Continuar Editando',
+            style: 'cancel',
+          },
+          {
+            text: 'Sim, Cancelar',
+            style: 'destructive',
+            onPress: () => {
+              // Limpar o formulário antes de fechar
+              setFormData({
+                origin: '',
+                destination: '',
+                departure: '',
+                arrival_time: '',
+                price: '',
+                bus_company: '',
+                bus_type: 'convencional',
+                amenities: []
+              });
+              setEditingRoute(null);
+              toggleModal();
+            },
+          },
+        ]
+      );
+    } else {
+      // Limpar o formulário e fechar modal
+      setFormData({
+        origin: '',
+        destination: '',
+        departure: '',
+        arrival_time: '',
+        price: '',
+        bus_company: '',
+        bus_type: 'convencional',
+        amenities: []
+      });
+      setEditingRoute(null);
+      toggleModal();
     }
   };
 
@@ -309,7 +376,8 @@ export default function RoutesManagement() {
       arrival_time: route.arrival,
       price: priceValue,
       bus_company: route.bus_company,
-      bus_type: route.bus_type || 'convencional'
+      bus_type: route.bus_type || 'convencional',
+      amenities: []
     });
     setModalVisible(true);
   };
@@ -353,8 +421,12 @@ export default function RoutesManagement() {
 
   return (
     <View style={styles.container}>
-      {/* Header Actions */}
+      {/* Header with Actions */}
       <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <Text style={styles.headerTitle}>Gerenciar Rotas</Text>
+        </View>
+        
         <TouchableOpacity style={styles.addButton} onPress={toggleModal}>
           <Ionicons name="add-circle" size={24} color="#FFFFFF" />
           <Text style={styles.addButtonText}>Nova Rota</Text>
@@ -442,14 +514,22 @@ export default function RoutesManagement() {
 
       {/* Add/Edit Route Modal */}
       <Modal
-        isVisible={isModalVisible}
-        onBackdropPress={toggleModal}
-        style={styles.modal}
+        visible={isModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={toggleModal}
       >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            {editingRoute ? 'Editar Rota' : 'Nova Rota'}
-          </Text>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity 
+            style={styles.modalBackdrop} 
+            activeOpacity={1} 
+            onPress={toggleModal}
+          />
+          <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>
+              {editingRoute ? 'Editar Rota' : 'Nova Rota'}
+            </Text>
 
           <ScrollView 
             style={styles.formScrollView}
@@ -503,8 +583,13 @@ export default function RoutesManagement() {
               <TextInput
                 style={styles.input}
                 value={formData.price}
-                onChangeText={(text) => handleInputChange('price', text)}
-                placeholder="Ex: 85.00"
+                onChangeText={(text) => {
+                  // Remove caracteres não numéricos e aplica máscara de moeda
+                  const numericValue = text.replace(/[^\d]/g, '');
+                  const maskedPrice = mask(numericValue, '999,99');
+                  handleInputChange('price', maskedPrice);
+                }}
+                placeholder="Ex: 85,00"
                 keyboardType="numeric"
               />
             </View>
@@ -561,19 +646,24 @@ export default function RoutesManagement() {
           <View style={styles.modalActions}>
             <TouchableOpacity 
               style={[styles.modalButton, styles.cancelButton]}
-              onPress={toggleModal}
+              onPress={handleCancel}
+              activeOpacity={0.7}
             >
+              <Ionicons name="close-circle" size={20} color="#6B7280" />
               <Text style={styles.cancelButtonText}>Cancelar</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={[styles.modalButton, styles.saveButton]}
               onPress={handleAddRoute}
+              activeOpacity={0.7}
             >
+              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
               <Text style={styles.saveButtonText}>Salvar</Text>
             </TouchableOpacity>
           </View>
         </View>
+      </View>
       </Modal>
     </View>
   );
@@ -590,6 +680,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
   },
   addButton: {
     flexDirection: 'row',
@@ -739,9 +840,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
   },
-  modal: {
-    margin: 0,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    flex: 1,
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
@@ -749,6 +854,15 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 40,
+    maxHeight: '90%',
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#D1D5DB',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
   },
   modalTitle: {
     fontSize: 24,
@@ -758,7 +872,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   formScrollView: {
-    maxHeight: 400,
+    maxHeight: '60%',
     marginBottom: 16,
   },
   formGroup: {
@@ -793,9 +907,14 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
   },
   cancelButton: {
     backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
   },
   cancelButtonText: {
     fontSize: 16,
@@ -804,6 +923,11 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: '#DC2626',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   
   loader: {

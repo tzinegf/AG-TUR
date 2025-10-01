@@ -14,6 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { mask } from 'react-native-mask-text';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -85,9 +86,12 @@ export default function AuthScreen() {
                 <Ionicons name="call-outline" size={20} color="#6B7280" />
                 <TextInput
                   style={styles.input}
-                  placeholder="Telefone"
+                  placeholder="(11) 99999-9999"
                   value={formData.phone}
-                  onChangeText={(text) => setFormData({ ...formData, phone: text })}
+                  onChangeText={(text) => {
+                    const maskedValue = mask(text, '(99) 99999-9999');
+                    setFormData({ ...formData, phone: maskedValue });
+                  }}
                   keyboardType="phone-pad"
                 />
               </View>

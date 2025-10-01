@@ -19,6 +19,7 @@ import { busRoutesService } from '../../services/busRoutes';
 import { bookingsService } from '../../services/bookings';
 import { BusRoute } from '../../lib/supabase';
 import { format, parseISO } from 'date-fns';
+import { mask } from 'react-native-mask-text';
 
 interface Passenger {
   name: string;
@@ -329,7 +330,10 @@ export default function BookingScreen() {
             <TextInput
               style={styles.input}
               value={passenger.cpf}
-              onChangeText={(text) => handlePassengerUpdate(index, 'cpf', text)}
+              onChangeText={(text) => {
+                const maskedCpf = mask(text, '999.999.999-99');
+                handlePassengerUpdate(index, 'cpf', maskedCpf);
+              }}
               placeholder="000.000.000-00"
               keyboardType="numeric"
             />
@@ -352,7 +356,10 @@ export default function BookingScreen() {
             <TextInput
               style={styles.input}
               value={passenger.phone}
-              onChangeText={(text) => handlePassengerUpdate(index, 'phone', text)}
+              onChangeText={(text) => {
+                const maskedPhone = mask(text, '(99) 99999-9999');
+                handlePassengerUpdate(index, 'phone', maskedPhone);
+              }}
               placeholder="(11) 99999-9999"
               keyboardType="phone-pad"
             />
@@ -509,7 +516,10 @@ export default function BookingScreen() {
                 <TextInput
                   style={styles.input}
                   value={cardData.expiry}
-                  onChangeText={(text) => setCardData({ ...cardData, expiry: text })}
+                  onChangeText={(text) => {
+                    const maskedExpiry = mask(text, '99/99');
+                    setCardData({ ...cardData, expiry: maskedExpiry });
+                  }}
                   placeholder="MM/AA"
                   keyboardType="numeric"
                 />

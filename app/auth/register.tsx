@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { mask } from 'react-native-mask-text';
 
 export default function RegisterScreen() {
   const [formData, setFormData] = useState({
@@ -47,7 +48,13 @@ export default function RegisterScreen() {
   };
 
   const updateFormData = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    if (field === 'phone') {
+      // Aplicar máscara de telefone brasileiro
+      const maskedValue = mask(value, '(99) 99999-9999');
+      setFormData(prev => ({ ...prev, [field]: maskedValue }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   return (

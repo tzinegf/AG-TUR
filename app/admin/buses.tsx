@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Picker } from '@react-native-picker/picker';
 import { Bus } from '../../lib/supabase';
 import { busService } from '../../services/busService';
+import { mask } from 'react-native-mask-text';
 
 export default function AdminBuses() {
   const [buses, setBuses] = useState<Bus[]>([]);
@@ -369,9 +370,14 @@ export default function AdminBuses() {
                   <TextInput
                     style={styles.input}
                     value={formData.plate}
-                    onChangeText={(text) => setFormData({ ...formData, plate: text.toUpperCase() })}
+                    onChangeText={(text) => {
+                      // Aplica máscara de placa brasileira (ABC-1234 ou ABC1D23)
+                      const maskedPlate = mask(text.toUpperCase(), 'AAA-9999');
+                      setFormData({ ...formData, plate: maskedPlate });
+                    }}
                     placeholder="ABC-1234"
                     autoCapitalize="characters"
+                    maxLength={8}
                   />
                 </View>
 
