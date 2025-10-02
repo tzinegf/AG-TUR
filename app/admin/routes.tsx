@@ -17,6 +17,117 @@ import { busRoutesService } from '../../services/busRoutes';
 import { BusRoute } from '../../lib/supabase';
 import { mask } from 'react-native-mask-text';
 
+// Função para aplicar máscara de data/hora no padrão brasileiro
+const applyDateTimeMask = (value: string) => {
+  // Remove todos os caracteres não numéricos
+  const numericValue = value.replace(/[^\d]/g, '');
+  
+  // Aplica a máscara DD/MM/AAAA HH:MM
+  if (numericValue.length <= 8) {
+    return mask(numericValue, '99/99/9999');
+  } else {
+    return mask(numericValue, '99/99/9999 99:99');
+  }
+};
+
+// Função para calcular duração em tempo real
+const calculateDurationRealTime = (departure: string, arrival: string): string => {
+  if (!departure || !arrival) return '';
+  
+  try {
+    const departureDateTime = parseDateTime(departure);
+    const arrivalDateTime = parseDateTime(arrival);
+    
+    if (departureDateTime && arrivalDateTime) {
+      const durationMs = arrivalDateTime.getTime() - departureDateTime.getTime();
+      
+      if (durationMs <= 0) return '';
+      
+      const hours = Math.floor(durationMs / (1000 * 60 * 60));
+      const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes}min`;
+      } else {
+        return `${minutes}min`;
+      }
+    }
+  } catch (error) {
+    return '';
+  }
+  
+  return '';
+};
+const parseDateTime = (dateTimeString: string): Date | null => {
+  const fullDateTimeRegex = /^(\d{2})\/(\d{2})\/(\d{4})\s(\d{2}):(\d{2})$/;
+  const timeOnlyRegex = /^(\d{1,2}):(\d{2})$/;
+  
+  if (fullDateTimeRegex.test(dateTimeString)) {
+    const match = dateTimeString.match(fullDateTimeRegex);
+    if (match) {
+      const [, day, month, year, hour, minute] = match;
+      // Mês em JavaScript é 0-indexado (0 = Janeiro, 11 = Dezembro)
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
+    }
+  }
+  
+  if (timeOnlyRegex.test(dateTimeString)) {
+    const match = dateTimeString.match(timeOnlyRegex);
+    if (match) {
+      const [, hour, minute] = match;
+      // Se for apenas hora, usa a data atual
+      const today = new Date();
+      return new Date(today.getFullYear(), today.getMonth(), today.getDate(), parseInt(hour), parseInt(minute));
+    }
+  }
+  
+  return null;
+};
+
+// Função para validar formato de data/hora brasileiro
+const validateBrazilianDateTime = (dateTimeString: string): boolean => {
+  // Aceita tanto DD/MM/AAAA HH:MM quanto apenas HH:MM
+  const fullDateTimeRegex = /^(\d{2})\/(\d{2})\/(\d{4})\s(\d{2}):(\d{2})$/;
+  const timeOnlyRegex = /^(\d{1,2}):(\d{2})$/;
+  
+  if (fullDateTimeRegex.test(dateTimeString)) {
+    const match = dateTimeString.match(fullDateTimeRegex);
+    if (match) {
+      const [, day, month, year, hour, minute] = match;
+      const dayNum = parseInt(day);
+      const monthNum = parseInt(month);
+      const yearNum = parseInt(year);
+      const hourNum = parseInt(hour);
+      const minuteNum = parseInt(minute);
+      
+      // Validações básicas
+      if (dayNum < 1 || dayNum > 31) return false;
+      if (monthNum < 1 || monthNum > 12) return false;
+      if (yearNum < 2024 || yearNum > 2030) return false;
+      if (hourNum < 0 || hourNum > 23) return false;
+      if (minuteNum < 0 || minuteNum > 59) return false;
+      
+      return true;
+    }
+  }
+  
+  if (timeOnlyRegex.test(dateTimeString)) {
+    const match = dateTimeString.match(timeOnlyRegex);
+    if (match) {
+      const [, hour, minute] = match;
+      const hourNum = parseInt(hour);
+      const minuteNum = parseInt(minute);
+      
+      if (hourNum < 0 || hourNum > 23) return false;
+      if (minuteNum < 0 || minuteNum > 59) return false;
+      
+      return true;
+    }
+  }
+  
+  return false;
+};
+
 interface RouteDisplay {
   id: string;
   origin: string;
@@ -45,11 +156,11 @@ export default function RoutesManagement() {
     origin: '',
     destination: '',
     departure: '',
-    arrival_time: '',
+    arrival: '',
     price: '',
-    bus_company: '',
+    bus_company: 'AG TUR',
     bus_type: 'convencional',
-    amenities: [] as string[]
+    amenities: []
   });
 
   // Fetch routes on component mount
@@ -91,6 +202,19 @@ export default function RoutesManagement() {
     }
   };
 
+  // Calculate duration between departure and arrival in minutes for database
+  const calculateDurationInMinutes = (departure: string, arrival: string): number => {
+    const departureDate = parseDateTime(departure);
+    const arrivalDate = parseDateTime(arrival);
+    
+    if (!departureDate || !arrivalDate) {
+      return 0;
+    }
+    
+    const diffInMinutes = Math.floor((arrivalDate.getTime() - departureDate.getTime()) / 60000);
+    return diffInMinutes > 0 ? diffInMinutes : 0;
+  };
+
   // Calculate duration between departure and arrival
   const calculateDuration = (departure: string, arrival: string) => {
     const departureDate = new Date(departure);
@@ -112,9 +236,9 @@ export default function RoutesManagement() {
         origin: '',
         destination: '',
         departure: '',
-        arrival_time: '',
+        arrival: '',
         price: '',
-        bus_company: '',
+        bus_company: 'AG TUR',
         bus_type: 'convencional',
         amenities: []
       });
@@ -126,7 +250,7 @@ export default function RoutesManagement() {
   const handleCancel = () => {
     // Verificar se há dados preenchidos no formulário
     const hasData = formData.origin || formData.destination || formData.departure || 
-                   formData.arrival_time || formData.price || formData.bus_company;
+                   formData.arrival || formData.price || formData.bus_company;
     
     if (hasData) {
       Alert.alert(
@@ -146,9 +270,9 @@ export default function RoutesManagement() {
                 origin: '',
                 destination: '',
                 departure: '',
-                arrival_time: '',
+                arrival: '',
                 price: '',
-                bus_company: '',
+                bus_company: 'AG TUR',
                 bus_type: 'convencional',
                 amenities: []
               });
@@ -164,9 +288,9 @@ export default function RoutesManagement() {
         origin: '',
         destination: '',
         departure: '',
-        arrival_time: '',
+        arrival: '',
         price: '',
-        bus_company: '',
+        bus_company: 'AG TUR',
         bus_type: 'convencional',
         amenities: []
       });
@@ -195,7 +319,7 @@ export default function RoutesManagement() {
         return;
       }
 
-      if (!formData.arrival_time?.trim()) {
+      if (!formData.arrival?.trim()) {
         Alert.alert('Erro de Validação', 'Por favor, informe o horário de chegada');
         return;
       }
@@ -240,31 +364,37 @@ export default function RoutesManagement() {
         return;
       }
 
-      // Validação de horários no formato brasileiro (HH:MM)
-      const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      // Validação de horários no formato brasileiro (DD/MM/AAAA HH:MM ou HH:MM)
+      if (!validateBrazilianDateTime(formData.departure.trim())) {
+        Alert.alert('Erro de Validação', 'Horário de partida inválido. Use o formato DD/MM/AAAA HH:MM ou HH:MM (ex: 25/12/2024 08:30 ou 08:30)');
+        return;
+      }
+
+      if (!validateBrazilianDateTime(formData.arrival.trim())) {
+        Alert.alert('Erro de Validação', 'Horário de chegada inválido. Use o formato DD/MM/AAAA HH:MM ou HH:MM (ex: 25/12/2024 14:45 ou 14:45)');
+        return;
+      }
+
+      // Validar se a data/hora de chegada é posterior à data/hora de partida
+      const departureDateTime = parseDateTime(formData.departure.trim());
+      const arrivalDateTime = parseDateTime(formData.arrival.trim());
       
-      if (!timeRegex.test(formData.departure.trim())) {
-        Alert.alert('Erro de Validação', 'Horário de partida inválido. Use o formato HH:MM (ex: 08:30)');
-        return;
-      }
-
-      if (!timeRegex.test(formData.arrival_time.trim())) {
-        Alert.alert('Erro de Validação', 'Horário de chegada inválido. Use o formato HH:MM (ex: 14:45)');
-        return;
-      }
-
-      const departure = new Date(`2024-01-01T${formData.departure}`);
-      const arrivalTime = new Date(`2024-01-01T${formData.arrival_time}`);
-
-      if (arrivalTime <= departure) {
-        Alert.alert('Erro de Validação', 'O horário de chegada deve ser posterior ao horário de partida');
-        return;
-      }
-
-      // Validação de duração da viagem (máximo 24 horas)
-      const durationInHours = (arrivalTime.getTime() - departure.getTime()) / (1000 * 60 * 60);
-      if (durationInHours > 24) {
-        Alert.alert('Erro de Validação', 'A duração da viagem não pode exceder 24 horas');
+      if (departureDateTime && arrivalDateTime) {
+        if (arrivalDateTime <= departureDateTime) {
+          Alert.alert('Erro de Validação', 'A data e hora de chegada deve ser posterior à data e hora de partida');
+          return;
+        }
+        
+        // Verificar se a duração da viagem não excede 24 horas
+        const durationMs = arrivalDateTime.getTime() - departureDateTime.getTime();
+        const durationHours = durationMs / (1000 * 60 * 60);
+        
+        if (durationHours > 24) {
+          Alert.alert('Erro de Validação', 'A duração da viagem não pode exceder 24 horas');
+          return;
+        }
+      } else {
+        Alert.alert('Erro de Validação', 'Formato de data/hora inválido. Use DD/MM/AAAA HH:MM ou HH:MM');
         return;
       }
 
@@ -334,14 +464,12 @@ export default function RoutesManagement() {
         origin: formData.origin.trim(),
         destination: formData.destination.trim(),
         departure: formData.departure.trim(),
-        arrival: formData.arrival_time.trim(),
-        arrival_time: formData.arrival_time.trim(),
+        arrival: formData.arrival.trim(),
         price: finalPrice,
         bus_company: formData.bus_company.trim(),
         bus_type: formData.bus_type,
-        available_seats: 40,
-        total_seats: 40,
-        duration: calculateDuration(formData.departure.trim(), formData.arrival_time.trim()),
+       
+        duration: calculateDurationRealTime(formData.departure.trim(), formData.arrival.trim()),
         status: 'active'
       };
 
@@ -373,7 +501,7 @@ export default function RoutesManagement() {
       origin: route.origin,
       destination: route.destination,
       departure: route.departure,
-      arrival_time: route.arrival,
+      arrival: route.arrival,
       price: priceValue,
       bus_company: route.bus_company,
       bus_type: route.bus_type || 'convencional',
@@ -562,8 +690,13 @@ export default function RoutesManagement() {
                 <TextInput
                   style={styles.input}
                   value={formData.departure}
-                  onChangeText={(text) => handleInputChange('departure', text)}
-                  placeholder="AAAA-MM-DD HH:MM:SS"
+                  onChangeText={(text) => {
+                    const maskedDate = applyDateTimeMask(text);
+                    handleInputChange('departure', maskedDate);
+                  }}
+                  placeholder="DD/MM/AAAA HH:MM"
+                  keyboardType="numeric"
+                  maxLength={16}
                 />
               </View>
 
@@ -571,11 +704,26 @@ export default function RoutesManagement() {
                 <Text style={styles.label}>Data/Hora de Chegada *</Text>
                 <TextInput
                   style={styles.input}
-                  value={formData.arrival_time}
-                  onChangeText={(text) => handleInputChange('arrival_time', text)}
-                  placeholder="AAAA-MM-DD HH:MM:SS"
+                  value={formData.arrival}
+                  onChangeText={(text) => {
+                    const maskedDate = applyDateTimeMask(text);
+                    handleInputChange('arrival', maskedDate);
+                  }}
+                  placeholder="DD/MM/AAAA HH:MM"
+                  keyboardType="numeric"
+                  maxLength={16}
                 />
               </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Duração da Viagem</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: '#F9FAFB', color: '#6B7280' }]}
+                value={calculateDurationRealTime(formData.departure, formData.arrival)}
+                editable={false}
+                placeholder="Calculado automaticamente"
+              />
             </View>
 
             <View style={styles.formGroup}>

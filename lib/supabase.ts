@@ -33,10 +33,7 @@ export interface BusRoute {
   destination: string;
   departure: string;
   arrival: string;
-  arrival_time: string;
   price: number;
-  available_seats: number;
-  total_seats: number;
   bus_company: string;
   bus_type: string;
   amenities?: string[];

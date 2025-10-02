@@ -22,12 +22,10 @@ interface Route {
   origin: string;
   destination: string;
   departure_time: string;
-  arrival_time: string;
+  arrival: string;
   price: number;
   bus_type: string;
   amenities: string[];
-  available_seats: number;
-  total_seats: number;
 }
 
 interface SearchForm {
@@ -67,12 +65,11 @@ export default function SearchScreen() {
         origin: route.origin,
         destination: route.destination,
         departure_time: route.departure,
-        arrival_time: route.arrival_time,
+        arrival: route.arrival,
         price: route.price,
         bus_type: route.bus_type,
         amenities: route.amenities || [],
-        available_seats: route.available_seats,
-        total_seats: route.total_seats,
+       
       })) || []);
     } catch (error) {
       console.error('Erro ao carregar rotas:', error);
@@ -222,7 +219,7 @@ export default function SearchScreen() {
                         {route.origin} → {route.destination}
                       </Text>
                       <Text style={styles.routeTime}>
-                        {formatTime(route.departure_time)} - {formatTime(route.arrival_time)}
+                        {formatTime(route.departure_time)} - {formatTime(route.arrival)}
                       </Text>
                     </View>
                     <View style={styles.routePrice}>
@@ -242,9 +239,7 @@ export default function SearchScreen() {
                         <Text style={styles.moreAmenities}>+{(route.amenities || []).length - 3}</Text>
                       )}
                     </View>
-                    <Text style={styles.availabilityText}>
-                      {route.available_seats} lugares disponíveis
-                    </Text>
+                    
                   </View>
                 </TouchableOpacity>
               ))}
