@@ -119,7 +119,7 @@ export default function SearchScreen() {
               onPress={() => setShowDatePicker(true)}
             >
               <Text style={styles.dateText}>
-                {format(date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                {format(date, "dd/MM/yyyy", { locale: ptBR })}
               </Text>
               <Ionicons name="calendar" size={20} color="#6B7280" />
             </TouchableOpacity>

@@ -97,16 +97,34 @@ export default function SearchScreen() {
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
-      month: 'short',
+      month: '2-digit',
       year: 'numeric',
     });
   };
 
   const formatTime = (timeString: string) => {
-    return new Date(timeString).toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    try {
+      // Se a string já está no formato HH:MM, usar diretamente
+      if (/^\d{2}:\d{2}$/.test(timeString)) {
+        return timeString;
+      }
+      
+      // Tentar criar uma data válida
+      const date = new Date(timeString);
+      
+      // Verificar se a data é válida
+      if (isNaN(date.getTime())) {
+        return timeString; // Retorna a string original se não conseguir converter
+      }
+      
+      return date.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (error) {
+      // Em caso de erro, retorna a string original ou um valor padrão
+      return timeString || 'Horário inválido';
+    }
   };
 
   const getBusTypeLabel = (type: string) => {

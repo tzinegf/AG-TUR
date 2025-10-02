@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
 import { busRoutesService } from '../../services/busRoutes';
 import { bookingsService } from '../../services/bookings';
+import { seatsService, Seat } from '../../services/seats';
 import { BusRoute } from '../../lib/supabase';
 import { format, parseISO } from 'date-fns';
 import { mask } from 'react-native-mask-text';
@@ -31,8 +32,25 @@ interface Passenger {
 export default function BookingScreen() {
   const { user } = useAuth();
   const params = useLocalSearchParams();
+  
+  // 🚨 DEBUG: Log básico do componente
+  console.log('🎬 DEBUG: BookingScreen component loaded');
+  console.log('📋 DEBUG: All params:', params);
+  console.log('📋 DEBUG: All params keys:', Object.keys(params));
+  console.log('📋 DEBUG: All params values:', Object.values(params));
+  
+  // 🔍 DEBUG: Verificar cada parâmetro individualmente
+  console.log('🔍 DEBUG: params.tripId:', params.tripId);
+  console.log('🔍 DEBUG: params.passengers:', params.passengers);
+  console.log('🔍 DEBUG: params.from:', params.from);
+  console.log('🔍 DEBUG: params.to:', params.to);
+  
+  // 🔍 DEBUG: Verificar se existe com nomes diferentes
+  console.log('🔍 DEBUG: params keys includes tripId?', Object.keys(params).includes('tripId'));
+  console.log('🔍 DEBUG: params keys includes passengers?', Object.keys(params).includes('passengers'));
+
   const { 
-    routeId, 
+    tripId,  // 🔧 Mudança: usar tripId em vez de routeId
     from, 
     to, 
     date, 
@@ -40,12 +58,25 @@ export default function BookingScreen() {
     arrivalTime, 
     price, 
     companyName, 
-    passengerCount 
+    passengers  // 🔧 Mudança: usar passengers em vez de passengerCount
   } = params;
 
+  // Use tripId as routeId for backward compatibility
+  const routeId = tripId;
+  const passengerCount = passengers;
+  
+  console.log('🆔 DEBUG: tripId received:', tripId);
+  console.log('🆔 DEBUG: tripId type:', typeof tripId);
+  console.log('🆔 DEBUG: routeId (mapped from tripId):', routeId);
+  console.log('🆔 DEBUG: routeId type:', typeof routeId);
+  console.log('👥 DEBUG: passengers received:', passengers);
+  console.log('👤 DEBUG: user:', user?.id);
+
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
-  const [passengers, setPassengers] = useState<Passenger[]>([]);
+  const [selectedSeats, setSelectedSeats] = useState<Seat[]>([]);
+  const [availableSeats, setAvailableSeats] = useState<Seat[]>([]);
+  const [seatLayout, setSeatLayout] = useState<{ [key: number]: Seat[] }>({});
+  const [passengerData, setPassengerData] = useState<Passenger[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'debit' | 'pix'>('credit');
   const [cardData, setCardData] = useState({
     number: '',
@@ -56,6 +87,32 @@ export default function BookingScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [routeDetails, setRouteDetails] = useState<BusRoute | null>(null);
+
+  useEffect(() => {
+    console.log('🔄 DEBUG: useEffect triggered');
+    console.log('🔄 DEBUG: routeId in useEffect:', routeId);
+    console.log('🔄 DEBUG: passengerCount in useEffect:', passengerCount);
+    console.log('🔄 DEBUG: user in useEffect:', user?.id);
+    
+    if (routeId) {
+      console.log('✅ DEBUG: routeId exists, calling fetchRouteDetails and fetchSeats');
+      fetchRouteDetails();
+      fetchSeats();
+    } else {
+      console.log('❌ DEBUG: routeId is missing or falsy:', routeId);
+    }
+    
+    // Initialize passengers array based on passenger count
+    const count = parseInt(passengerCount as string) || 1;
+    console.log('👥 DEBUG: Passenger count:', count);
+    const initialPassengers = Array.from({ length: count }, (_, index) => ({
+      name: '',
+      cpf: '',
+      email: index === 0 ? user?.email || '' : '',
+      phone: ''
+    }));
+    setPassengerData(initialPassengers);
+  }, [routeId, passengerCount, user]);
 
   // Early returns for loading and error states
   if (loading) {
@@ -79,34 +136,6 @@ export default function BookingScreen() {
     );
   }
 
-  // Generate seat layout (simplified for demo)
-  const generateSeats = () => {
-    const seats = [];
-    for (let row = 1; row <= 12; row++) {
-      seats.push([`${row}A`, `${row}B`, null, `${row}C`, `${row}D`]);
-    }
-    return seats;
-  };
-
-  const seatLayout = generateSeats();
-  const occupiedSeats = ['1A', '3C', '5B', '7D', '9A']; // Mock occupied seats
-
-  useEffect(() => {
-    if (routeId) {
-      fetchRouteDetails();
-    }
-    
-    // Initialize passengers array based on passenger count
-    const count = parseInt(passengerCount as string) || 1;
-    const initialPassengers = Array.from({ length: count }, (_, index) => ({
-      name: '',
-      cpf: '',
-      email: index === 0 ? user?.email || '' : '',
-      phone: ''
-    }));
-    setPassengers(initialPassengers);
-  }, [routeId, passengerCount, user]);
-
   const fetchRouteDetails = async () => {
     try {
       setLoading(true);
@@ -121,13 +150,60 @@ export default function BookingScreen() {
     }
   };
 
-  const handleSeatSelect = (seat: string) => {
-    if (occupiedSeats.includes(seat)) return;
+  const fetchSeats = async () => {
+    try {
+      setLoading(true);
+      console.log('🔍 DEBUG: Fetching seats for route:', routeId);
+      
+      const seats = await seatsService.getAllSeatsForRoute(routeId as string);
+      console.log('🪑 DEBUG: Raw seats data:', seats);
+      console.log('🪑 DEBUG: Seats count:', seats?.length || 0);
+      
+      const layout = await seatsService.getSeatLayout(routeId as string);
+      console.log('🗺️ DEBUG: Raw layout data:', layout);
+      console.log('🗺️ DEBUG: Layout keys:', Object.keys(layout || {}));
+      console.log('🗺️ DEBUG: Layout keys count:', Object.keys(layout || {}).length);
+      
+      const available = seats.filter(seat => seat.is_available);
+      console.log('✅ DEBUG: Available seats:', available.length);
+      console.log('✅ DEBUG: Available seats data:', available);
+      
+      // Debug individual seat data
+      if (seats && seats.length > 0) {
+        console.log('🪑 DEBUG: First seat example:', seats[0]);
+        console.log('🪑 DEBUG: Seat properties:', Object.keys(seats[0]));
+      }
+      
+      // Debug layout structure
+      if (layout && Object.keys(layout).length > 0) {
+        const firstRowKey = Object.keys(layout)[0];
+        console.log('🗺️ DEBUG: First row key:', firstRowKey);
+        console.log('🗺️ DEBUG: First row data:', (layout as any)[firstRowKey]);
+      }
+      
+      setAvailableSeats(available);
+      setSeatLayout(layout);
+      
+      console.log('🎯 DEBUG: State updated - availableSeats:', available.length);
+      console.log('🎯 DEBUG: State updated - seatLayout keys:', Object.keys(layout || {}).length);
+      
+    } catch (err) {
+      console.error('❌ DEBUG: Error fetching seats:', err);
+      console.error('❌ DEBUG: Error details:', JSON.stringify(err, null, 2));
+      setError('Erro ao carregar poltronas disponíveis');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSeatSelect = (seat: Seat) => {
+    if (!seat.is_available) return;
     
     const maxSeats = parseInt(passengerCount as string) || 1;
+    const isSelected = selectedSeats.some(s => s.id === seat.id);
     
-    if (selectedSeats.includes(seat)) {
-      setSelectedSeats(selectedSeats.filter(s => s !== seat));
+    if (isSelected) {
+      setSelectedSeats(selectedSeats.filter(s => s.id !== seat.id));
     } else if (selectedSeats.length < maxSeats) {
       setSelectedSeats([...selectedSeats, seat]);
     } else {
@@ -136,9 +212,9 @@ export default function BookingScreen() {
   };
 
   const handlePassengerUpdate = (index: number, field: keyof Passenger, value: string) => {
-    const updatedPassengers = [...passengers];
+    const updatedPassengers = [...passengerData];
     updatedPassengers[index] = { ...updatedPassengers[index], [field]: value };
-    setPassengers(updatedPassengers);
+    setPassengerData(updatedPassengers);
   };
 
   const validateStep = () => {
@@ -152,8 +228,8 @@ export default function BookingScreen() {
         return true;
       
       case 2:
-        for (let i = 0; i < passengers.length; i++) {
-          const passenger = passengers[i];
+        for (let i = 0; i < passengerData.length; i++) {
+      const passenger = passengerData[i];
           if (!passenger.name || !passenger.cpf || !passenger.email || !passenger.phone) {
             Alert.alert('Dados incompletos', `Complete todos os dados do passageiro ${i + 1}.`);
             return false;
@@ -192,21 +268,15 @@ export default function BookingScreen() {
       
       const totalAmount = (routeDetails ? routeDetails.price : parseFloat(price as string)) * parseInt(passengerCount as string);
       
-      const bookingData = {
-        route_id: routeId as string,
-        user_id: user?.id,
-        seats: selectedSeats,
-        passengers,
-        payment_method: paymentMethod,
-        total_price: totalAmount,
-        status: 'confirmed'
-      };
-
+      // Extrair apenas os IDs das poltronas selecionadas
+      const seatIds = selectedSeats.map(seat => seat.id);
+      
       await bookingsService.createBooking(
         routeId as string,
-        selectedSeats,
+        seatIds,
         totalAmount,
-        paymentMethod
+        paymentMethod,
+        passengerData
       );
       
       Alert.alert(
@@ -254,47 +324,60 @@ export default function BookingScreen() {
           </View>
 
           {/* Seats */}
-          {seatLayout.map((row, rowIndex) => (
-            <View key={rowIndex} style={styles.seatRow}>
-              {row.map((seat, seatIndex) => {
-                if (seat === null) {
-                  return <View key={seatIndex} style={styles.aisle} />;
-                }
-
-                const isOccupied = occupiedSeats.includes(seat);
-                const isSelected = selectedSeats.includes(seat);
-
-                return (
-                  <TouchableOpacity
-                    key={seat}
-                    style={[
-                      styles.seat,
-                      isOccupied && styles.seatOccupied,
-                      isSelected && styles.seatSelected,
-                      !isOccupied && !isSelected && styles.seatAvailable
-                    ]}
-                    onPress={() => handleSeatSelect(seat)}
-                    disabled={isOccupied}
-                  >
-                    <Text style={[
-                      styles.seatText,
-                      isOccupied && styles.seatTextOccupied,
-                      isSelected && styles.seatTextSelected
-                    ]}>
-                      {seat}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+          {Object.keys(seatLayout).length === 0 ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={{ color: '#6B7280', fontSize: 16 }}>
+                Nenhuma poltrona disponível para esta rota
+              </Text>
             </View>
-          ))}
+          ) : (
+            Object.keys(seatLayout).sort((a, b) => parseInt(a) - parseInt(b)).map((rowKey) => {
+              const row = seatLayout[parseInt(rowKey)];
+              return (
+                <View key={rowKey} style={styles.seatRow}>
+                  {row.map((seat, seatIndex) => {
+                    if (seat === null) {
+                      return <View key={seatIndex} style={styles.aisle} />;
+                    }
+
+                    const isOccupied = !seat.is_available;
+                    const isSelected = selectedSeats.some(s => s.id === seat.id);
+
+                    return (
+                      <TouchableOpacity
+                        key={seat.id}
+                        style={[
+                          styles.seat,
+                          isOccupied && styles.seatOccupied,
+                          isSelected && styles.seatSelected,
+                          !isOccupied && !isSelected && styles.seatAvailable
+                        ]}
+                        onPress={() => handleSeatSelect(seat)}
+                        disabled={isOccupied}
+                      >
+                        <Text style={[
+                          styles.seatText,
+                          isOccupied && styles.seatTextOccupied,
+                          isSelected && styles.seatTextSelected
+                        ]}>
+                          {seat.seat_number}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              );
+            })
+          )}
         </View>
 
         {/* Selected Seats Info */}
         {selectedSeats.length > 0 && (
           <View style={styles.selectedSeatsInfo}>
             <Text style={styles.selectedSeatsLabel}>Assentos selecionados:</Text>
-            <Text style={styles.selectedSeatsText}>{selectedSeats.join(', ')}</Text>
+            <Text style={styles.selectedSeatsText}>
+              {selectedSeats.map(seat => seat.seat_number).join(', ')}
+            </Text>
           </View>
         )}
       </View>
@@ -308,11 +391,13 @@ export default function BookingScreen() {
         Preencha os dados de todos os passageiros
       </Text>
 
-      {passengers.map((passenger, index) => (
+      {passengerData.map((passenger, index) => (
         <View key={index} style={styles.passengerCard}>
           <View style={styles.passengerHeader}>
             <Text style={styles.passengerTitle}>Passageiro {index + 1}</Text>
-            <Text style={styles.passengerSeat}>Assento {selectedSeats[index]}</Text>
+            <Text style={styles.passengerSeat}>
+              Assento {selectedSeats[index]?.seat_number || 'N/A'}
+            </Text>
           </View>
 
           <View style={styles.formGroup}>
@@ -403,17 +488,48 @@ export default function BookingScreen() {
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Rota</Text>
           <Text style={styles.summaryValue}>
-            {routeDetails ? `${routeDetails.origin} → ${routeDetails.destination}` : `${from} → ${to}`}
+            {routeDetails 
+              ? `${routeDetails.origin || 'Origem'} → ${routeDetails.destination || 'Destino'}` 
+              : `${from || 'Origem'} → ${to || 'Destino'}`
+            }
           </Text>
         </View>
         
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Data</Text>
           <Text style={styles.summaryValue}>
-            {routeDetails 
-              ? format(parseISO(routeDetails.departure), 'dd/MM/yyyy')
-              : date as string
-            }
+            {(() => {
+              // Primeiro tenta usar o parâmetro date que vem da tela de resultados
+              if (date) {
+                try {
+                  // Se date já está no formato dd/MM/yyyy, usa diretamente
+                  if (typeof date === 'string' && date.includes('/')) {
+                    return date;
+                  }
+                  // Se date está em formato ISO, converte
+                  const parsedDate = parseISO(date as string);
+                  if (!isNaN(parsedDate.getTime())) {
+                    return format(parsedDate, 'dd/MM/yyyy');
+                  }
+                } catch (error) {
+                  console.log('🗓️ DEBUG: Error parsing date param:', error);
+                }
+              }
+              
+              // Fallback para routeDetails se date não funcionar
+              if (routeDetails && routeDetails.departure) {
+                try {
+                  const parsedDate = parseISO(routeDetails.departure);
+                  if (!isNaN(parsedDate.getTime())) {
+                    return format(parsedDate, 'dd/MM/yyyy');
+                  }
+                } catch (error) {
+                  console.log('🗓️ DEBUG: Error parsing routeDetails date:', error);
+                }
+              }
+              
+              return 'Data não informada';
+            })()}
           </Text>
         </View>
         
@@ -421,8 +537,19 @@ export default function BookingScreen() {
           <Text style={styles.summaryLabel}>Horário</Text>
           <Text style={styles.summaryValue}>
             {routeDetails 
-              ? `${format(parseISO(routeDetails.departure), 'HH:mm')} - ${format(parseISO(routeDetails.arrival), 'HH:mm')}`
-              : `${departureTime} - ${arrivalTime}`
+              ? (() => {
+                  try {
+                    const departureDate = parseISO(routeDetails.departure);
+                    const arrivalDate = parseISO(routeDetails.arrival);
+                    if (isNaN(departureDate.getTime()) || isNaN(arrivalDate.getTime())) {
+                      return 'Horário inválido';
+                    }
+                    return `${format(departureDate, 'HH:mm')} - ${format(arrivalDate, 'HH:mm')}`;
+                  } catch {
+                    return 'Horário inválido';
+                  }
+                })()
+              : `${departureTime || '--:--'} - ${arrivalTime || '--:--'}`
             }
           </Text>
         </View>
@@ -430,22 +557,43 @@ export default function BookingScreen() {
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Empresa</Text>
           <Text style={styles.summaryValue}>
-            {routeDetails ? routeDetails.bus_company : companyName as string}
+            {routeDetails ? (routeDetails.bus_company || 'Empresa não informada') : (companyName as string) || 'Empresa não informada'}
+          </Text>
+        </View>
+        
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Passageiros</Text>
+          <Text style={styles.summaryValue}>
+            {passengerCount ? `${passengerCount} passageiro${parseInt(passengerCount as string) > 1 ? 's' : ''}` : '1 passageiro'}
           </Text>
         </View>
         
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Assentos</Text>
-          <Text style={styles.summaryValue}>{selectedSeats.join(', ')}</Text>
+          <Text style={styles.summaryValue}>
+            {(() => {
+              if (selectedSeats && Array.isArray(selectedSeats) && selectedSeats.length > 0) {
+                const seatNumbers = selectedSeats
+                  .map(seat => seat?.seat_number)
+                  .filter(num => num !== undefined && num !== null)
+                  .sort();
+                
+                return seatNumbers.length > 0 ? seatNumbers.join(', ') : 'Nenhum assento selecionado';
+              }
+              return 'Nenhum assento selecionado';
+            })()}
+          </Text>
         </View>
         
         <View style={[styles.summaryRow, styles.summaryTotal]}>
           <Text style={styles.summaryTotalLabel}>Total</Text>
           <Text style={styles.summaryTotalValue}>
-            R$ {(
-              (routeDetails ? routeDetails.price : parseFloat(price as string)) * 
-              parseInt(passengerCount as string)
-            ).toFixed(2)}
+            R$ {(() => {
+              const basePrice = routeDetails ? routeDetails.price : (price ? parseFloat(price as string) : 0);
+              const passengers = passengerCount ? parseInt(passengerCount as string) : 1;
+              const total = basePrice * passengers;
+              return isNaN(total) ? '0,00' : total.toFixed(2).replace('.', ',');
+            })()}
           </Text>
         </View>
       </View>
@@ -457,7 +605,7 @@ export default function BookingScreen() {
         style={[styles.paymentOption, paymentMethod === 'credit' && styles.paymentOptionActive]}
         onPress={() => setPaymentMethod('credit')}
       >
-        <Ionicons name="card" size={24} color={paymentMethod === 'credit' ? '#3B82F6' : '#6B7280'} />
+        <Ionicons name="card" size={24} color={paymentMethod === 'credit' ? '#DC2626' : '#6B7280'} />
         <Text style={[styles.paymentOptionText, paymentMethod === 'credit' && styles.paymentOptionTextActive]}>
           Cartão de Crédito
         </Text>
@@ -467,7 +615,7 @@ export default function BookingScreen() {
         style={[styles.paymentOption, paymentMethod === 'debit' && styles.paymentOptionActive]}
         onPress={() => setPaymentMethod('debit')}
       >
-        <Ionicons name="card-outline" size={24} color={paymentMethod === 'debit' ? '#3B82F6' : '#6B7280'} />
+        <Ionicons name="card-outline" size={24} color={paymentMethod === 'debit' ? '#DC2626' : '#6B7280'} />
         <Text style={[styles.paymentOptionText, paymentMethod === 'debit' && styles.paymentOptionTextActive]}>
           Cartão de Débito
         </Text>
@@ -477,7 +625,7 @@ export default function BookingScreen() {
         style={[styles.paymentOption, paymentMethod === 'pix' && styles.paymentOptionActive]}
         onPress={() => setPaymentMethod('pix')}
       >
-        <Ionicons name="qr-code" size={24} color={paymentMethod === 'pix' ? '#3B82F6' : '#6B7280'} />
+        <Ionicons name="qr-code" size={24} color={paymentMethod === 'pix' ? '#DC2626' : '#6B7280'} />
         <Text style={[styles.paymentOptionText, paymentMethod === 'pix' && styles.paymentOptionTextActive]}>
           PIX
         </Text>

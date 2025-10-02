@@ -99,8 +99,8 @@ export default function SearchResults() {
         price: route.price,
         originalPrice: Math.random() > 0.5 ? route.price * 1.2 : undefined,
         busType: route.bus_type as 'convencional' | 'executivo' | 'leito' | 'semi-leito',
-        availableSeats: route.available_seats,
-        totalSeats: route.total_seats,
+        availableSeats: Math.floor(Math.random() * 30) + 10, // Mock available seats
+        totalSeats: 45, // Mock total seats
         amenities: route.amenities || [],
         stops: Math.floor(Math.random() * 3),
         rating: 4.0 + Math.random() * 1,
@@ -178,7 +178,7 @@ export default function SearchResults() {
         date: dateParam as string,
         passengers,
         price: trip.price.toString(),
-        departureTime: trip.departure,
+        departure: trip.departure,
         arrivalTime: trip.arrivalTime,
         companyName: trip.companyName,
         busType: trip.busType,
@@ -274,7 +274,19 @@ export default function SearchResults() {
           <View style={styles.routeInfo}>
             <Text style={styles.headerTitle}>{origin} → {destination}</Text>
             <Text style={styles.headerSubtitle}>
-              {format(parseISO(dateParam as string), "dd 'de' MMMM", { locale: ptBR })} • {passengers} passageiro{parseInt(passengers as string) > 1 ? 's' : ''}
+              {(() => {
+                try {
+                  const parsedDate = parseISO(dateParam as string);
+                  if (isNaN(parsedDate.getTime())) {
+                    // Se a data é inválida, tenta criar uma nova data a partir da string
+                    const fallbackDate = new Date(dateParam as string);
+                    return isNaN(fallbackDate.getTime()) ? 'Data inválida' : format(fallbackDate, "dd/MM/yyyy", { locale: ptBR });
+                  }
+                  return format(parsedDate, "dd/MM/yyyy", { locale: ptBR });
+                } catch (error) {
+                  return 'Data inválida';
+                }
+              })()} • {passengers} passageiro{parseInt(passengers as string) > 1 ? 's' : ''}
             </Text>
           </View>
           

@@ -1,11 +1,13 @@
 import { supabase, Booking, Payment } from '../lib/supabase';
+import { seatsService } from './seats';
 
 export const bookingsService = {
   async createBooking(
     routeId: string,
-    seatNumbers: string[],
+    seatIds: string[], // Mudança: agora recebe IDs das poltronas em vez de números
     totalPrice: number,
-    paymentMethod: string
+    paymentMethod: string,
+    passengerInfo?: { name?: string; document?: string }[]
   ) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -17,7 +19,7 @@ export const bookingsService = {
           id: 'mock-booking-' + Date.now(),
           user_id: 'mock-user',
           route_id: routeId,
-          seat_number: seatNumbers.join(','),
+          seat_number: seatIds.join(','), // Mantém compatibilidade temporária
           passenger_name: 'Mock User',
           passenger_document: '000.000.000-00',
           total_price: totalPrice,
@@ -29,13 +31,27 @@ export const bookingsService = {
         return mockBooking as Booking;
       }
 
+      // Verificar disponibilidade das poltronas antes de criar a reserva
+      const seatsAvailable = await seatsService.checkSeatsAvailability(seatIds);
+      if (!seatsAvailable) {
+        throw new Error('Uma ou mais poltronas selecionadas não estão mais disponíveis');
+      }
+
+      // Buscar informações das poltronas para obter os números
+      const seats = await supabase
+        .from('seats')
+        .select('seat_number')
+        .in('id', seatIds);
+
+      const seatNumbers = seats.data?.map(seat => seat.seat_number) || [];
+
       // Create booking
       const { data: booking, error: bookingError } = await supabase
         .from('bookings')
         .insert({
           user_id: user.id,
           route_id: routeId,
-          seat_numbers: seatNumbers,
+          seat_numbers: seatNumbers, // Usar números das poltronas
           total_price: totalPrice,
           payment_method: paymentMethod,
           payment_status: 'pending',
@@ -44,6 +60,15 @@ export const bookingsService = {
         .single();
 
       if (bookingError) throw bookingError;
+
+      // Reservar as poltronas no sistema
+      try {
+        await seatsService.reserveSeats(booking.id, seatIds, passengerInfo);
+      } catch (seatError: any) {
+        // Se falhar ao reservar poltronas, cancelar a reserva
+        await supabase.from('bookings').delete().eq('id', booking.id);
+        throw new Error('Falha ao reservar poltronas: ' + (seatError?.message || 'Erro desconhecido'));
+      }
 
       // Create payment record
       const { error: paymentError } = await supabase
@@ -55,7 +80,12 @@ export const bookingsService = {
           status: 'pending',
         });
 
-      if (paymentError) throw paymentError;
+      if (paymentError) {
+        // Se falhar ao criar pagamento, liberar poltronas e cancelar reserva
+        await seatsService.releaseSeats(booking.id);
+        await supabase.from('bookings').delete().eq('id', booking.id);
+        throw paymentError;
+      }
 
       return booking as Booking;
     } catch (error) {
@@ -123,12 +153,21 @@ export const bookingsService = {
   },
 
   async cancelBooking(id: string) {
-    const { error } = await supabase
-      .from('bookings')
-      .update({ status: 'cancelled' })
-      .eq('id', id);
+    try {
+      // Primeiro, liberar as poltronas
+      await seatsService.releaseSeats(id);
+      
+      // Depois, cancelar a reserva
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', id);
 
-    if (error) throw error;
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      throw error;
+    }
   },
 
   // Admin functions
