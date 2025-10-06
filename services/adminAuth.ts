@@ -10,27 +10,11 @@ export interface AdminUser {
 export const adminAuthService = {
   async signInAdmin(email: string, password: string): Promise<{ user: AdminUser | null; error: string | null }> {
     try {
-      // Verificar conexão com Supabase e configuração
-      console.log('Verificando conexão com Supabase...');
+      // Verificar configuração básica
       if (!supabase.auth) {
         console.error('Erro: Cliente Supabase não está configurado corretamente');
         return { user: null, error: 'Erro de configuração do servidor. Entre em contato com o suporte.' };
       }
-
-      // Verificar conexão com a API do Supabase
-      const { error: healthError } = await supabase.from('profiles').select('count').limit(1);
-      if (healthError) {
-        console.error('Erro de conexão com Supabase:', healthError.message);
-        if (healthError.message.includes('JWT')) {
-          return { user: null, error: 'Erro de autenticação do servidor. Tente novamente mais tarde.' };
-        }
-        if (healthError.message.includes('network')) {
-          return { user: null, error: 'Erro de conexão com o servidor. Verifique sua internet.' };
-        }
-        return { user: null, error: 'Erro de conexão com o servidor. Tente novamente.' };
-      }
-      
-      console.log('Conexão com Supabase estabelecida com sucesso');
 
       // Autenticar com Supabase
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -40,6 +24,9 @@ export const adminAuthService = {
 
       if (authError) {
         console.error('Erro de autenticação Supabase:', authError.message);
+        if (/fetch|network|Failed to fetch|ECONN|ENOTFOUND/i.test(authError.message)) {
+          return { user: null, error: 'Erro de conexão com o servidor. Verifique sua internet ou configuração do Supabase.' };
+        }
         if (authError.message.includes('Invalid login credentials')) {
           return { user: null, error: 'Credenciais de login inválidas. Verifique seu email e senha.' };
         }

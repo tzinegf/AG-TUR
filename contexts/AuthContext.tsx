@@ -126,11 +126,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        // Check for development mode with specific credentials
+        // Fallback de desenvolvimento quando a API responde erro
         if (__DEV__ && 
             email === 'user@agtur.local' && 
             password === 'UserTest2024!') {
-          console.warn('Using development user credentials');
+          console.warn('Using development user credentials (API error fallback)');
           const mockUser = { 
             id: 'dev-user-' + Date.now(), 
             email,
@@ -141,7 +141,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         
-        // Throw the actual error for production or invalid credentials
         throw new Error(error.message || 'Credenciais inválidas');
       }
 
@@ -157,6 +156,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Sign in error:', error);
+      // Fallback de desenvolvimento quando ocorre falha de rede
+      if (
+        __DEV__ &&
+        email === 'user@agtur.local' &&
+        password === 'UserTest2024!'
+      ) {
+        console.warn('Using development user credentials (network fallback)');
+        const mockUser = {
+          id: 'dev-user-' + Date.now(),
+          email,
+          name: 'Usuário Desenvolvimento',
+        };
+        setUser(mockUser);
+        await AsyncStorage.setItem('@AGTur:user', JSON.stringify(mockUser));
+        return;
+      }
       throw error;
     }
   }

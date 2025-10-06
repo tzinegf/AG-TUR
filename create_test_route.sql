@@ -1,10 +1,12 @@
 -- Script para criar uma rota de teste simples
 -- Primeiro, vamos limpar dados antigos se existirem
+-- Usar um UUID estático para a rota de teste
+--  b1c0a611-1c02-4b86-8f81-60e3f6b8b16d
 DELETE FROM booking_seats WHERE seat_id IN (
-  SELECT id FROM seats WHERE route_id = 'test-route-123'
+  SELECT id FROM seats WHERE route_id = 'b1c0a611-1c02-4b86-8f81-60e3f6b8b16d'
 );
-DELETE FROM seats WHERE route_id = 'test-route-123';
-DELETE FROM routes WHERE id = 'test-route-123';
+DELETE FROM seats WHERE route_id = 'b1c0a611-1c02-4b86-8f81-60e3f6b8b16d';
+DELETE FROM routes WHERE id = 'b1c0a611-1c02-4b86-8f81-60e3f6b8b16d';
 
 -- Inserir uma rota de teste
 INSERT INTO routes (
@@ -21,7 +23,7 @@ INSERT INTO routes (
   amenities,
   status
 ) VALUES (
-  'test-route-123',
+  'b1c0a611-1c02-4b86-8f81-60e3f6b8b16d',
   'São Paulo',
   'Rio de Janeiro',
   '2024-01-20 08:00:00+00',
@@ -36,7 +38,7 @@ INSERT INTO routes (
 );
 
 -- Verificar se a rota foi criada
-SELECT * FROM routes WHERE id = 'test-route-123';
+SELECT * FROM routes WHERE id = 'b1c0a611-1c02-4b86-8f81-60e3f6b8b16d';
 
 -- Verificar se existem assentos para esta rota
-SELECT COUNT(*) as seat_count FROM seats WHERE route_id = 'test-route-123';
+SELECT COUNT(*) as seat_count FROM seats WHERE route_id = 'b1c0a611-1c02-4b86-8f81-60e3f6b8b16d';

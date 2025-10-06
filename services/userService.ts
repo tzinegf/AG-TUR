@@ -172,6 +172,24 @@ class UserService {
       throw new Error('Não foi possível enviar o email de redefinição de senha');
     }
   }
+
+  async getUsersByIds(ids: string[]): Promise<Pick<User, 'id' | 'name' | 'email'>[]> {
+    try {
+      const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+      if (uniqueIds.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from(this.TABLE_NAME)
+        .select('id, name, email')
+        .in('id', uniqueIds);
+
+      if (error) throw error;
+      return (data || []) as Pick<User, 'id' | 'name' | 'email'>[];
+    } catch (error) {
+      console.error('Erro ao buscar perfis por IDs:', error);
+      return [];
+    }
+  }
 }
 
 export const userService = new UserService();

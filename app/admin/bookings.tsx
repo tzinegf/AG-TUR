@@ -14,8 +14,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Picker } from '@react-native-picker/picker';
+import { bookingsService } from '../../services/bookings';
+import { userService } from '../../services/userService';
 
-interface Booking {
+interface AdminBooking {
   id: string;
   bookingCode: string;
   userId: string;
@@ -35,73 +37,81 @@ interface Booking {
 }
 
 export default function AdminBookings() {
-  const [bookings, setBookings] = useState<Booking[]>([
-    {
-      id: '1',
-      bookingCode: 'AG2024001',
-      userId: '1',
-      userName: 'João Silva',
-      userEmail: 'joao.silva@email.com',
-      routeId: '1',
-      routeName: 'São Paulo - Rio de Janeiro',
-      busId: '1',
-      busPlate: 'ABC-1234',
-      seatNumber: '12A',
-      departureDate: '2024-01-20',
-      departureTime: '08:00',
-      price: 120.00,
-      status: 'confirmed',
-      paymentStatus: 'paid',
-      createdAt: '2024-01-15T10:30:00',
-    },
-    {
-      id: '2',
-      bookingCode: 'AG2024002',
-      userId: '2',
-      userName: 'Maria Santos',
-      userEmail: 'maria.santos@email.com',
-      routeId: '2',
-      routeName: 'Belo Horizonte - Brasília',
-      busId: '2',
-      busPlate: 'DEF-5678',
-      seatNumber: '08B',
-      departureDate: '2024-01-21',
-      departureTime: '14:30',
-      price: 180.00,
-      status: 'pending',
-      paymentStatus: 'pending',
-      createdAt: '2024-01-15T14:45:00',
-    },
-    {
-      id: '3',
-      bookingCode: 'AG2024003',
-      userId: '3',
-      userName: 'Pedro Oliveira',
-      userEmail: 'pedro.oliveira@email.com',
-      routeId: '3',
-      routeName: 'Salvador - Recife',
-      busId: '3',
-      busPlate: 'GHI-9012',
-      seatNumber: '15A',
-      departureDate: '2024-01-19',
-      departureTime: '22:00',
-      price: 95.00,
-      status: 'cancelled',
-      paymentStatus: 'refunded',
-      createdAt: '2024-01-14T16:20:00',
-    },
-  ]);
+  const [bookings, setBookings] = useState<AdminBooking[]>([]);
+  const [errorText, setErrorText] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'confirmed' | 'pending' | 'cancelled'>('all');
   const [filterPayment, setFilterPayment] = useState<'all' | 'paid' | 'pending' | 'refunded'>('all');
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<AdminBooking | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     console.log('Usuário acessou a página: Reservas Administrativas');
+    loadBookings();
   }, []);
+
+  const loadBookings = async () => {
+    try {
+      const data: any[] = await bookingsService.getAllBookings();
+
+      // Buscar perfis dos usuários (batched) para obter nome/email
+      const userIds = Array.from(new Set((data || []).map((b: any) => b?.user_id).filter(Boolean)));
+      const profiles = await userService.getUsersByIds(userIds);
+      const profileMap = new Map<string, { id: string; name?: string; email?: string }>(
+        (profiles || []).map(p => [p.id, { id: p.id, name: p.name, email: p.email }])
+      );
+
+      const mapped: AdminBooking[] = (data || []).map((b: any) => {
+        const routeName = b?.route
+          ? `${b.route.origin} - ${b.route.destination}`
+          : 'Rota desconhecida';
+        const depRaw = b?.route?.departure ?? b?.route?.departure_time ?? null;
+        let departureDate = '';
+        let departureTime = '';
+        if (depRaw) {
+          const d = new Date(depRaw);
+          if (!isNaN(d.getTime())) {
+            departureDate = d.toLocaleDateString('pt-BR');
+            departureTime = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          }
+        }
+        const seatNumber = Array.isArray(b?.seat_numbers)
+          ? (b.seat_numbers as string[]).join(', ')
+          : (b?.seat_number || (Array.isArray(b?.seats) ? (b.seats as string[]).join(', ') : ''));
+
+        const prof = profileMap.get(String(b.user_id));
+        return {
+          id: b.id,
+          bookingCode: `AG${String(b.id).slice(-6)}`,
+          userId: b.user_id,
+          userName: (b?.user?.name || b?.user?.email || prof?.name || prof?.email || 'Usuário'),
+          userEmail: (b?.user?.email || prof?.email || ''),
+          routeId: b.route_id,
+          routeName,
+          busId: '-',
+          busPlate: '-',
+          seatNumber,
+          departureDate,
+          departureTime,
+          price: Number(b.total_price) || 0,
+          status: (b.status || 'pending') as AdminBooking['status'],
+          paymentStatus: (b.payment_status || 'pending') as AdminBooking['paymentStatus'],
+          createdAt: b.created_at,
+        } as AdminBooking;
+      });
+      setBookings(mapped);
+      setErrorText('');
+    } catch (err: any) {
+      console.error('Erro ao carregar reservas:', err);
+      const msg = String(err?.message || '');
+      const code = String(err?.code || '');
+      const status = Number(err?.status || 0);
+      const isAuthOrRLS = status === 401 || /permission denied|rls|jwt|unauthor/i.test(msg) || code === '401';
+      setErrorText(isAuthOrRLS ? 'Faça login como admin para ver reservas.' : 'Falha ao carregar reservas. Tente novamente.');
+    }
+  };
 
   const filteredBookings = bookings.filter(booking => {
     const matchesSearch = 
@@ -118,11 +128,11 @@ export default function AdminBookings() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await loadBookings();
     setRefreshing(false);
   };
 
-  const handleViewBooking = (booking: Booking) => {
+  const handleViewBooking = (booking: AdminBooking) => {
     setSelectedBooking(booking);
     setModalVisible(true);
   };
@@ -137,14 +147,20 @@ export default function AdminBookings() {
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Confirmar',
-          onPress: () => {
-            setBookings(bookings.map(booking =>
-              booking.id === selectedBooking.id
-                ? { ...booking, status: newStatus }
-                : booking
-            ));
-            setModalVisible(false);
-            Alert.alert('Sucesso', 'Status da reserva atualizado!');
+          onPress: async () => {
+            try {
+              await bookingsService.updateBookingStatus(selectedBooking.id, newStatus);
+              setBookings(bookings.map(booking =>
+                booking.id === selectedBooking.id
+                  ? { ...booking, status: newStatus }
+                  : booking
+              ));
+              setModalVisible(false);
+              Alert.alert('Sucesso', 'Status da reserva atualizado no sistema!');
+            } catch (err: any) {
+              console.error('Falha ao atualizar status:', err);
+              Alert.alert('Erro', 'Não foi possível atualizar o status da reserva.');
+            }
           },
         },
       ]
@@ -154,6 +170,11 @@ export default function AdminBookings() {
   const handleUpdatePayment = (newPaymentStatus: 'paid' | 'pending' | 'refunded') => {
     if (!selectedBooking) return;
 
+    // Map UI status to DB status
+    const dbStatus: 'pending' | 'completed' | 'refunded' =
+      newPaymentStatus === 'paid' ? 'completed' :
+      newPaymentStatus === 'refunded' ? 'refunded' : 'pending';
+
     Alert.alert(
       'Confirmar Alteração',
       `Deseja alterar o status do pagamento para ${getPaymentLabel(newPaymentStatus)}?`,
@@ -161,14 +182,20 @@ export default function AdminBookings() {
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Confirmar',
-          onPress: () => {
-            setBookings(bookings.map(booking =>
-              booking.id === selectedBooking.id
-                ? { ...booking, paymentStatus: newPaymentStatus }
-                : booking
-            ));
-            setModalVisible(false);
-            Alert.alert('Sucesso', 'Status do pagamento atualizado!');
+          onPress: async () => {
+            try {
+              await bookingsService.updateBookingPayment(selectedBooking.id, dbStatus);
+              setBookings(bookings.map(booking =>
+                booking.id === selectedBooking.id
+                  ? { ...booking, paymentStatus: newPaymentStatus }
+                  : booking
+              ));
+              setModalVisible(false);
+              Alert.alert('Sucesso', 'Status do pagamento atualizado no sistema!');
+            } catch (err: any) {
+              console.error('Falha ao atualizar pagamento:', err);
+              Alert.alert('Erro', 'Não foi possível atualizar o status do pagamento.');
+            }
           },
         },
       ]
@@ -202,7 +229,7 @@ export default function AdminBookings() {
     }
   };
 
-  const renderBookingItem = ({ item }: { item: Booking }) => (
+  const renderBookingItem = ({ item }: { item: AdminBooking }) => (
     <TouchableOpacity style={styles.bookingCard} onPress={() => handleViewBooking(item)}>
       <View style={styles.bookingHeader}>
         <Text style={styles.bookingCode}>{item.bookingCode}</Text>
@@ -248,6 +275,13 @@ export default function AdminBookings() {
           {filteredBookings.length} reserva{filteredBookings.length !== 1 ? 's' : ''} encontrada{filteredBookings.length !== 1 ? 's' : ''}
         </Text>
       </LinearGradient>
+
+      {errorText ? (
+        <View style={styles.errorBanner}>
+          <Ionicons name="warning" size={18} color="#B91C1C" />
+          <Text style={styles.errorText}>{errorText}</Text>
+        </View>
+      ) : null}
 
       {/* Search and Filters */}
       <View style={styles.searchContainer}>
@@ -479,6 +513,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     opacity: 0.8,
     marginTop: 4,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FCA5A5',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 12,
+  },
+  errorText: {
+    color: '#B91C1C',
+    fontSize: 14,
+    flex: 1,
   },
   searchContainer: {
     backgroundColor: '#FFFFFF',

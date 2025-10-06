@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS routes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   origin text NOT NULL,
   destination text NOT NULL,
-  departure_time timestamptz NOT NULL,
+  departure timestamptz NOT NULL,
   arrival_time timestamptz NOT NULL,
   price decimal(10,2) NOT NULL,
   available_seats integer NOT NULL,
@@ -76,7 +76,7 @@ ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_routes_origin_destination ON routes(origin, destination);
-CREATE INDEX IF NOT EXISTS idx_routes_departure_time ON routes(departure_time);
+CREATE INDEX IF NOT EXISTS idx_routes_departure ON routes(departure);
 CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_route_id ON bookings(route_id);
 CREATE INDEX IF NOT EXISTS idx_payments_booking_id ON payments(booking_id);

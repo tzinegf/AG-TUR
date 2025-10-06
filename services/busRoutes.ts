@@ -1,38 +1,108 @@
 import { supabase, BusRoute } from '../lib/supabase';
 
+const isDev = process.env.NODE_ENV !== 'production';
+
+function fallbackRoutes(): BusRoute[] {
+  const now = Date.now();
+  const mk = (
+    id: string,
+    origin: string,
+    destination: string,
+    hours: number,
+    price: number,
+    bus_type: string,
+    company = 'AG TUR'
+  ): BusRoute => ({
+    id,
+    origin,
+    destination,
+    departure: new Date(now + 60 * 60 * 1000).toISOString(),
+    arrival: new Date(now + (60 * 60 * 1000) + hours * 60 * 60 * 1000).toISOString(),
+    price,
+    bus_company: company,
+    bus_type,
+    amenities: ['ar_condicionado', 'wifi', 'tomadas'],
+    duration: `${hours}h`,
+    status: 'active',
+    created_at: new Date(now).toISOString(),
+  });
+  return [
+    mk('00000000-0000-0000-0000-000000000001', 'São Paulo', 'Rio de Janeiro', 6, 120.0, 'leito'),
+    mk('00000000-0000-0000-0000-000000000002', 'Rio de Janeiro', 'Belo Horizonte', 7, 110.0, 'semi-leito'),
+    mk('00000000-0000-0000-0000-000000000003', 'Curitiba', 'São Paulo', 6, 100.0, 'executivo'),
+  ];
+}
+
 export const busRoutesService = {
   async searchRoutes(origin: string, destination: string, date: Date) {
-    const { data, error } = await supabase
-      .from('routes')
-      .select('*')
-      .eq('origin', origin)
-      .eq('destination', destination)
-      .order('departure', { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from('routes')
+        .select('*')
+        .eq('origin', origin)
+        .eq('destination', destination)
+        .order('departure', { ascending: true });
 
-    if (error) throw error;
-    return data as BusRoute[];
+      if (error) throw error;
+      return (data || []).map((r: any) => ({
+        ...r,
+        departure: r.departure ?? r.departure_time,
+        arrival: r.arrival ?? r.arrival_time,
+      })) as BusRoute[];
+    } catch (error: any) {
+      console.error('Error searching routes (dev fallback may apply):', error);
+      if (isDev) {
+        const all = fallbackRoutes();
+        const dateISO = date.toISOString().slice(0, 10);
+        return all.filter(
+          (r) => r.origin === origin && r.destination === destination && r.departure.slice(0, 10) >= dateISO
+        );
+      }
+      throw error;
+    }
   },
 
   async getRoute(id: string) {
-    const { data, error } = await supabase
-      .from('routes')
-      .select('*')
-      .eq('id', id)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('routes')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-    if (error) throw error;
-    return data as BusRoute;
+      if (error) throw error;
+      return data as BusRoute;
+    } catch (error) {
+      console.error('Error fetching route by id (dev fallback may apply):', error);
+      if (isDev) {
+        const fallback = fallbackRoutes().find((r) => r.id === id);
+        if (fallback) return fallback;
+      }
+      throw error;
+    }
   },
 
   async getPopularRoutes() {
-    const { data, error } = await supabase
-      .from('routes')
-      .select('*')
-      .order('departure', { ascending: true })
-      .limit(10);
+    try {
+      const { data, error } = await supabase
+        .from('routes')
+        .select('*')
+        .order('departure', { ascending: true })
+        .limit(10);
 
-    if (error) throw error;
-    return data as BusRoute[];
+      if (error) throw error;
+      return (data || []).map((r: any) => ({
+        ...r,
+        departure: r.departure ?? r.departure_time,
+        arrival: r.arrival ?? r.arrival_time,
+      })) as BusRoute[];
+    } catch (error: any) {
+      console.error('Error fetching popular routes (dev fallback may apply):', error);
+      if (isDev) {
+        return fallbackRoutes();
+      }
+      throw error;
+    }
   },
 
   // Admin functions
@@ -82,15 +152,24 @@ export const busRoutesService = {
 
   // Get all routes for admin
   async getAllRoutes() {
-    const { data, error } = await supabase
-      .from('routes')
-      .select('*')
-      .order('departure', { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from('routes')
+        .select('*')
+        .order('departure', { ascending: true });
 
-    if (error) {
-      console.error('Error fetching all routes:', error);
+      if (error) throw error;
+      return (data || []).map((r: any) => ({
+        ...r,
+        departure: r.departure ?? r.departure_time,
+        arrival: r.arrival ?? r.arrival_time,
+      })) as BusRoute[];
+    } catch (error: any) {
+      console.error('Erro ao carregar rotas (aplicando fallback em dev):', error);
+      if (isDev) {
+        return fallbackRoutes();
+      }
       throw error;
     }
-    return data as BusRoute[];
   },
 };

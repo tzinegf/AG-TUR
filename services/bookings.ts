@@ -11,24 +11,29 @@ export const bookingsService = {
   ) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+      const allowDevBypass = process.env.EXPO_PUBLIC_ALLOW_DEV_BYPASS === 'true';
+
       if (!user) {
-        // For development, create a mock booking if user is not authenticated
-        console.warn('User not authenticated, creating mock booking for development');
-        const mockBooking = {
-          id: 'mock-booking-' + Date.now(),
-          user_id: 'mock-user',
-          route_id: routeId,
-          seat_number: seatIds.join(','), // Mantém compatibilidade temporária
-          passenger_name: 'Mock User',
-          passenger_document: '000.000.000-00',
-          total_price: totalPrice,
-          payment_status: 'pending' as const,
-          status: 'confirmed' as const,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        return mockBooking as Booking;
+        if (allowDevBypass) {
+          // Somente em desenvolvimento: retorna reserva mockada
+          console.warn('User not authenticated, creating mock booking for development');
+          const mockBooking = {
+            id: 'mock-booking-' + Date.now(),
+            user_id: 'mock-user',
+            route_id: routeId,
+            seat_number: seatIds.join(','), // Mantém compatibilidade temporária
+            passenger_name: 'Mock User',
+            passenger_document: '000.000.000-00',
+            total_price: totalPrice,
+            payment_status: 'pending' as const,
+            status: 'confirmed' as const,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          return mockBooking as Booking;
+        }
+        // Produção: exigir login para criar reserva real
+        throw new Error('Usuário não autenticado. Faça login para reservar.');
       }
 
       // Verificar disponibilidade das poltronas antes de criar a reserva
@@ -45,19 +50,43 @@ export const bookingsService = {
 
       const seatNumbers = seats.data?.map(seat => seat.seat_number) || [];
 
-      // Create booking
-      const { data: booking, error: bookingError } = await supabase
-        .from('bookings')
-        .insert({
-          user_id: user.id,
-          route_id: routeId,
-          seat_numbers: seatNumbers, // Usar números das poltronas
-          total_price: totalPrice,
-          payment_method: paymentMethod,
-          payment_status: 'pending',
-        })
-        .select()
-        .single();
+      // Create booking — try with seat_numbers, then fallback without it (handles prod schema)
+      let booking: any = null;
+      let bookingError: any = null;
+      {
+        const attemptWithSeatNumbers = await supabase
+          .from('bookings')
+          .insert({
+            user_id: user.id,
+            route_id: routeId,
+            seat_numbers: seatNumbers,
+            total_price: totalPrice,
+            payment_method: paymentMethod,
+            payment_status: 'pending',
+          })
+          .select()
+          .single();
+        booking = attemptWithSeatNumbers.data;
+        bookingError = attemptWithSeatNumbers.error;
+      }
+
+      if (bookingError && (bookingError.code === 'PGRST204' || /seat_numbers/i.test(bookingError.message || ''))) {
+        // Prod compat: some schemas use 'seats' (NOT NULL) instead of 'seat_numbers'
+        const attemptWithSeatsColumn = await supabase
+          .from('bookings')
+          .insert({
+            user_id: user.id,
+            route_id: routeId,
+            seats: seatNumbers,
+            total_price: totalPrice,
+            payment_method: paymentMethod,
+            payment_status: 'pending',
+          })
+          .select()
+          .single();
+        booking = attemptWithSeatsColumn.data;
+        bookingError = attemptWithSeatsColumn.error;
+      }
 
       if (bookingError) throw bookingError;
 
@@ -70,7 +99,7 @@ export const bookingsService = {
         throw new Error('Falha ao reservar poltronas: ' + (seatError?.message || 'Erro desconhecido'));
       }
 
-      // Create payment record
+      // Create payment record (tolerate missing payments table in prod)
       const { error: paymentError } = await supabase
         .from('payments')
         .insert({
@@ -81,10 +110,15 @@ export const bookingsService = {
         });
 
       if (paymentError) {
-        // Se falhar ao criar pagamento, liberar poltronas e cancelar reserva
-        await seatsService.releaseSeats(booking.id);
-        await supabase.from('bookings').delete().eq('id', booking.id);
-        throw paymentError;
+        if (paymentError.code === 'PGRST205' && /payments/i.test(paymentError.message || '')) {
+          console.warn('Payments table not found; skipping payment record creation.');
+          // Prosseguir sem registro de pagamento; manter reserva e assentos
+        } else {
+          // Se falhar por outro motivo, liberar poltronas e cancelar reserva
+          await seatsService.releaseSeats(booking.id);
+          await supabase.from('bookings').delete().eq('id', booking.id);
+          throw paymentError;
+        }
       }
 
       return booking as Booking;
@@ -126,7 +160,10 @@ export const bookingsService = {
     return data as Booking;
   },
 
-  async updateBookingPayment(bookingId: string, status: 'completed' | 'failed') {
+  async updateBookingPayment(
+    bookingId: string,
+    status: 'pending' | 'completed' | 'refunded' | 'failed'
+  ) {
     const qrCode = status === 'completed' 
       ? `AG-TUR-${bookingId}-${Date.now()}` 
       : null;
@@ -145,11 +182,22 @@ export const bookingsService = {
       .from('payments')
       .update({
         status,
-        transaction_id: `TXN-${Date.now()}`,
+        transaction_id: status === 'completed' ? `TXN-${Date.now()}` : null,
       })
       .eq('booking_id', bookingId);
 
     if (paymentError) throw paymentError;
+  },
+
+  async updateBookingStatus(
+    bookingId: string,
+    status: 'confirmed' | 'pending' | 'cancelled'
+  ) {
+    const { error } = await supabase
+      .from('bookings')
+      .update({ status })
+      .eq('id', bookingId);
+    if (error) throw error;
   },
 
   async cancelBooking(id: string) {
@@ -172,17 +220,39 @@ export const bookingsService = {
 
   // Admin functions
   async getAllBookings() {
-    const { data, error } = await supabase
+    // First, try with embedded user profiles (requires FK)
+    const attempt = await supabase
       .from('bookings')
       .select(`
         *,
         route:routes(*),
-        user:profiles(*)
+        user:profiles(id,email,name)
       `)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data as Booking[];
+    if (!attempt.error) {
+      return attempt.data as Booking[];
+    }
+
+    const msg = String(attempt.error.message || '');
+    const isRelationError = /relationship|no relation|No relationships/i.test(msg);
+
+    if (!isRelationError) {
+      // If it's not a relationship error, propagate (likely RLS/network)
+      throw attempt.error;
+    }
+
+    // Fallback: fetch without user embed (works even if FK missing)
+    const fallback = await supabase
+      .from('bookings')
+      .select(`
+        *,
+        route:routes(*)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (fallback.error) throw fallback.error;
+    return fallback.data as Booking[];
   },
 
   async getBookingStats() {

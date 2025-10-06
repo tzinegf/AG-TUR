@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { AGTurIcon } from './AGTurIcon';
+import { AGTurLogo } from './AGTurLogo';
 
 export const SplashScreen: React.FC = () => {
   return (
     <View style={styles.container}>
-      <AGTurIcon size={200} />
+      <AGTurLogo width={280} height={140} />
       <Text style={styles.title}>AG TUR</Text>
       <Text style={styles.subtitle}>Sua viagem começa aqui</Text>
     </View>
@@ -15,7 +15,7 @@ export const SplashScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFC107',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -23,12 +23,12 @@ const styles = StyleSheet.create({
     fontSize: 48,
     fontWeight: 'bold',
     color: '#1A1A1A',
-    marginTop: 20,
+    marginTop: 24,
   },
   subtitle: {
     fontSize: 18,
     color: '#1A1A1A',
-    marginTop: 10,
+    marginTop: 8,
   },
 });
 

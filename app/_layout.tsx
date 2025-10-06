@@ -10,6 +10,7 @@ import {
   ThemeProvider as NavigationThemeProvider,
 } from '@react-navigation/native';
 import { useColorScheme } from 'react-native';
+import SplashScreenComponent from '../components/SplashScreen';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -39,7 +40,7 @@ export default function RootLayout() {
   }, [loaded]);
 
   if (!loaded) {
-    return null;
+    return <SplashScreenComponent />;
   }
 
   return <RootLayoutNav />;

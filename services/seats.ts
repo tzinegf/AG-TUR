@@ -1,5 +1,31 @@
 import { supabase } from '../lib/supabase';
 
+const isDev = process.env.NODE_ENV !== 'production';
+
+function fallbackSeats(routeId: string): Seat[] {
+  const now = new Date().toISOString();
+  const seats: Seat[] = [];
+  for (let row = 1; row <= 12; row++) {
+    const make = (pos: 'A' | 'B' | 'C' | 'D', type: Seat['seat_type']) => ({
+      id: `${routeId}-${row}${pos}`,
+      route_id: routeId,
+      seat_number: `${row}${pos}`,
+      seat_type: type,
+      row_number: row,
+      position: pos,
+      is_available: true,
+      price_modifier: 0,
+      created_at: now,
+      updated_at: now,
+    });
+    seats.push(make('A', 'window'));
+    seats.push(make('B', 'aisle'));
+    seats.push(make('C', 'aisle'));
+    seats.push(make('D', 'window'));
+  }
+  return seats;
+}
+
 export interface Seat {
   id: string;
   route_id: string;
@@ -38,6 +64,9 @@ export const seatsService = {
       return data as Seat[];
     } catch (error) {
       console.error('Error fetching available seats:', error);
+      if (isDev) {
+        return fallbackSeats(routeId).filter((s) => s.is_available);
+      }
       throw error;
     }
   },
@@ -57,6 +86,9 @@ export const seatsService = {
 
       if (fetchError) {
         console.error('Error fetching seats:', fetchError);
+        if (isDev) {
+          return fallbackSeats(routeId);
+        }
         throw fetchError;
       }
 
@@ -65,28 +97,41 @@ export const seatsService = {
       // If no seats exist, create them automatically
       if (!existingSeats || existingSeats.length === 0) {
         console.log('No seats found, creating seats for route:', routeId);
-        await this.createSeatsForRoute(routeId);
-        
-        // Fetch the newly created seats
-        const { data: newSeats, error: newFetchError } = await supabase
-          .from('seats')
-          .select('*')
-          .eq('route_id', routeId)
-          .order('row_number', { ascending: true })
-          .order('position', { ascending: true });
+        try {
+          await this.createSeatsForRoute(routeId);
+          // Fetch the newly created seats
+          const { data: newSeats, error: newFetchError } = await supabase
+            .from('seats')
+            .select('*')
+            .eq('route_id', routeId)
+            .order('row_number', { ascending: true })
+            .order('position', { ascending: true });
 
-        if (newFetchError) {
-          console.error('Error fetching new seats:', newFetchError);
-          throw newFetchError;
+          if (newFetchError) {
+            console.error('Error fetching new seats:', newFetchError);
+            if (isDev) {
+              return fallbackSeats(routeId);
+            }
+            throw newFetchError;
+          }
+
+          console.log('New seats created:', newSeats?.length || 0);
+          return newSeats || [];
+        } catch (createErr) {
+          console.error('Error creating seats for route:', createErr);
+          if (isDev) {
+            return fallbackSeats(routeId);
+          }
+          throw createErr;
         }
-
-        console.log('New seats created:', newSeats?.length || 0);
-        return newSeats || [];
       }
 
       return existingSeats;
     } catch (error) {
       console.error('Error in getAllSeatsForRoute:', error);
+      if (isDev) {
+        return fallbackSeats(routeId);
+      }
       throw error;
     }
   },
@@ -169,6 +214,9 @@ export const seatsService = {
       return data as (BookingSeat & { seat: Seat })[];
     } catch (error) {
       console.error('Error fetching booking seats:', error);
+      if (isDev) {
+        return [];
+      }
       throw error;
     }
   },

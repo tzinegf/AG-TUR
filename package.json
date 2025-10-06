@@ -6,7 +6,13 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "supabase:start": "supabase start",
+    "supabase:db:push": "supabase db push",
+    "supabase:serve:stripe": "supabase functions serve stripe --env-file supabase/functions/.env",
+    "supabase:serve:webhook": "supabase functions serve stripe-webhook --env-file supabase/functions/.env",
+    "stripe:test": "node scripts/test-stripe.mjs",
+    "supabase:keys:test": "node scripts/test-supabase-keys.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
