@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
 
+import { router } from 'expo-router';
+
 export default function TicketsScreen() {
   const [activeTab, setActiveTab] = useState('upcoming');
 
@@ -146,7 +148,7 @@ export default function TicketsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Minhas Passagens</Text>
+        <Text style={styles.title}>Minhas Viagens</Text>
         <Text style={styles.subtitle}>Gerencie suas viagens</Text>
       </View>
 
@@ -182,8 +184,8 @@ export default function TicketsScreen() {
               <Text style={styles.emptySubtitle}>
                 Que tal planejar sua próxima aventura?
               </Text>
-              <TouchableOpacity style={styles.emptyButton}>
-                <Text style={styles.emptyButtonText}>Buscar Passagens</Text>
+              <TouchableOpacity style={styles.emptyButton} onPress={() => router.push('/(tabs)/search')}>
+                <Text style={styles.emptyButtonText}>Buscar Viagens</Text>
               </TouchableOpacity>
             </View>
           )

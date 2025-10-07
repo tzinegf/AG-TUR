@@ -194,6 +194,13 @@ export default function HomeScreen() {
       color: '#059669',
       onPress: () => router.push('/support'),
     },
+    {
+      icon: 'analytics',
+      title: 'Dashboard',
+      subtitle: 'Painel administrativo',
+      color: '#4B5563',
+      onPress: () => router.push('/admin/login'),
+    },
   ];
 
   return (

@@ -9,7 +9,7 @@ import {
   DefaultTheme,
   ThemeProvider as NavigationThemeProvider,
 } from '@react-navigation/native';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, Platform, LogBox } from 'react-native';
 import SplashScreenComponent from '../components/SplashScreen';
 
 export {
@@ -33,6 +33,15 @@ export default function RootLayout() {
     if (error) throw error;
   }, [error]);
 
+  // Suppress benign RN Web touch warning in development
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      LogBox.ignoreLogs([
+        'Cannot record touch end without a touch start',
+      ]);
+    }
+  }, []);
+
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
@@ -53,7 +62,7 @@ function RootLayoutNav() {
     <AuthProvider>
       <ThemeProvider>
         <NavigationThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack>
+          <Stack initialRouteName="index">
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="auth" options={{ headerShown: false }} />

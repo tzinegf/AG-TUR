@@ -1,5 +1,6 @@
 module.exports = function (api) {
-  api.cache(true);
+  const isWeb = api.caller((caller) => caller?.platform === 'web');
+  api.cache(() => (isWeb ? 'web' : 'native'));
   return {
     presets: ['babel-preset-expo'],
     plugins: [
@@ -18,12 +19,15 @@ module.exports = function (api) {
           },
         },
       ],
-      [
-        '@babel/plugin-transform-modules-commonjs',
-        {
-          allowTopLevelThis: true,
-        },
-      ],
+      // Avoid transforming modules to CommonJS on web, which breaks Expo Web bundling ("exports is not defined")
+      ...(isWeb
+        ? []
+        : [[
+            '@babel/plugin-transform-modules-commonjs',
+            {
+              allowTopLevelThis: true,
+            },
+          ]]),
       '@babel/plugin-syntax-import-meta',
       'react-native-reanimated/plugin',
     ],

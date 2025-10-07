@@ -199,6 +199,20 @@ export default function ProfileScreen() {
               subtitle="Gerencie suas notificações"
               onPress={() => Alert.alert('Em breve', 'Funcionalidade em desenvolvimento')}
             />
+
+            <MenuOption
+              icon="search"
+              title="Buscar Viagens"
+              subtitle="Encontre e reserve"
+              onPress={() => router.push('/(tabs)/search')}
+            />
+
+            <MenuOption
+              icon="analytics"
+              title="Dashboard"
+              subtitle="Painel administrativo"
+              onPress={() => router.push('/admin/login')}
+            />
             
             <MenuOption
               icon="shield-outline"

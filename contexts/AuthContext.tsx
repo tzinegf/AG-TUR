@@ -127,14 +127,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         // Fallback de desenvolvimento quando a API responde erro
-        if (__DEV__ && 
-            email === 'user@agtur.local' && 
-            password === 'UserTest2024!') {
-          console.warn('Using development user credentials (API error fallback)');
-          const mockUser = { 
-            id: 'dev-user-' + Date.now(), 
+        const allowBypass = process.env.EXPO_PUBLIC_ALLOW_DEV_BYPASS === 'true';
+        if (
+          __DEV__ && allowBypass
+        ) {
+          console.warn('Dev bypass ativo: autenticando usuário mock devido a erro da API:', error?.message);
+          const mockUser = {
+            id: 'dev-user-' + Date.now(),
             email,
-            name: 'Usuário Desenvolvimento'
+            name: 'Usuário Desenvolvimento',
           };
           setUser(mockUser);
           await AsyncStorage.setItem('@AGTur:user', JSON.stringify(mockUser));
@@ -157,12 +158,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Sign in error:', error);
       // Fallback de desenvolvimento quando ocorre falha de rede
-      if (
-        __DEV__ &&
-        email === 'user@agtur.local' &&
-        password === 'UserTest2024!'
-      ) {
-        console.warn('Using development user credentials (network fallback)');
+      const allowBypass = process.env.EXPO_PUBLIC_ALLOW_DEV_BYPASS === 'true';
+      if (__DEV__ && allowBypass) {
+        console.warn('Dev bypass ativo: autenticando usuário mock devido a falha de rede');
         const mockUser = {
           id: 'dev-user-' + Date.now(),
           email,

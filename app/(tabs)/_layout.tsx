@@ -20,13 +20,15 @@ export default function TabLayout() {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.replace('/auth');
+      router.replace('/auth' as any);
     }
   }, [user, loading, router]);
 
-  // Show loading or redirect if not authenticated
+  // Show a lightweight placeholder while redirecting unauthenticated users
   if (loading || !user) {
-    return null;
+    return (
+      <></>
+    );
   }
 
   return (
@@ -40,6 +42,8 @@ export default function TabLayout() {
         options={{
           title: 'Início',
           tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          // Avoid URL collision with root-level / (app/index.tsx)
+          href: null,
         }}
       />
       <Tabs.Screen
@@ -47,13 +51,15 @@ export default function TabLayout() {
         options={{
           title: 'Buscar',
           tabBarIcon: ({ color }) => <TabBarIcon name="search" color={color} />,
+          // Avoid URL collision with top-level /search (app/search/index.tsx)
+          href: null,
         }}
       />
       <Tabs.Screen
         name="tickets"
         options={{
-          title: 'Passagens',
-          tabBarIcon: ({ color }) => <TabBarIcon name="file-text" color={color} />,
+          title: 'Viagens',
+          tabBarIcon: ({ color }) => <TabBarIcon name="ticket" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -68,6 +74,13 @@ export default function TabLayout() {
         options={{
           title: 'Perfil',
           tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: 'Dashboard',
+          tabBarIcon: ({ color }) => <TabBarIcon name="line-chart" color={color} />,
         }}
       />
     </Tabs>
