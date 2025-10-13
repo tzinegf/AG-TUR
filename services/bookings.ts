@@ -19,7 +19,7 @@ export const bookingsService = {
           id: 'mock-booking-' + Date.now(),
           user_id: 'mock-user',
           route_id: routeId,
-          seat_number: seatIds.join(','), // Mantém compatibilidade temporária
+          // Assentos serão armazenados via booking_seats
           passenger_name: 'Mock User',
           passenger_document: '000.000.000-00',
           total_price: totalPrice,
@@ -37,27 +37,65 @@ export const bookingsService = {
         throw new Error('Uma ou mais poltronas selecionadas não estão mais disponíveis');
       }
 
-      // Buscar informações das poltronas para obter os números
-      const seats = await supabase
+      // Buscar os números das poltronas a partir dos IDs selecionados
+      const { data: seatRows, error: seatFetchError } = await supabase
         .from('seats')
-        .select('seat_number')
+        .select('id, seat_number')
         .in('id', seatIds);
 
-      const seatNumbers = seats.data?.map(seat => seat.seat_number) || [];
+      if (seatFetchError) throw seatFetchError;
 
-      // Create booking
-      const { data: booking, error: bookingError } = await supabase
-        .from('bookings')
-        .insert({
-          user_id: user.id,
-          route_id: routeId,
-          seat_numbers: seatNumbers, // Usar números das poltronas
-          total_price: totalPrice,
-          payment_method: paymentMethod,
-          payment_status: 'pending',
-        })
-        .select()
-        .single();
+      const seatNumbers: string[] = (seatRows || [])
+        .filter((s: any) => !!s?.seat_number)
+        .map((s: any) => s.seat_number);
+
+      // Garantir que temos a mesma quantidade de números que IDs
+      if (seatNumbers.length !== seatIds.length) {
+        console.warn('Diferença entre seat_numbers e seatIds', { seatNumbers, seatIds });
+      }
+
+      // Base comum da reserva
+      const baseInsert = {
+        user_id: user.id,
+        route_id: routeId,
+        total_price: totalPrice,
+        payment_method: paymentMethod,
+        payment_status: 'pending',
+      } as Record<string, any>;
+
+      let booking: any = null;
+      let bookingError: any = null;
+
+      // Tentativa 1: inserir usando coluna 'seats'
+      {
+        const { data, error } = await supabase
+          .from('bookings')
+          .insert({
+            ...baseInsert,
+            seats: seatNumbers,
+          })
+          .select()
+          .single();
+        booking = data;
+        bookingError = error;
+      }
+
+      // Se coluna 'seats' não existir, tentar 'seat_numbers'
+      if (bookingError && (
+        bookingError?.code === 'PGRST204' ||
+        (typeof bookingError?.message === 'string' && bookingError.message.includes("'seats' column"))
+      )) {
+        const { data, error } = await supabase
+          .from('bookings')
+          .insert({
+            ...baseInsert,
+            seat_numbers: seatNumbers,
+          })
+          .select()
+          .single();
+        booking = data;
+        bookingError = error;
+      }
 
       if (bookingError) throw bookingError;
 
@@ -81,10 +119,18 @@ export const bookingsService = {
         });
 
       if (paymentError) {
-        // Se falhar ao criar pagamento, liberar poltronas e cancelar reserva
-        await seatsService.releaseSeats(booking.id);
-        await supabase.from('bookings').delete().eq('id', booking.id);
-        throw paymentError;
+        const message = String((paymentError as any)?.message || '');
+        const isMissingPaymentsTable = message.includes("Could not find the table 'public.payments'");
+
+        if (isMissingPaymentsTable) {
+          // Se a tabela payments não existir no ambiente, prosseguir sem criar pagamento
+          console.warn('Tabela payments ausente. Pulando criação de pagamento e mantendo a reserva.');
+        } else {
+          // Se falhar ao criar pagamento por outro motivo, liberar poltronas e cancelar reserva
+          await seatsService.releaseSeats(booking.id);
+          await supabase.from('bookings').delete().eq('id', booking.id);
+          throw paymentError;
+        }
       }
 
       return booking as Booking;
@@ -149,7 +195,15 @@ export const bookingsService = {
       })
       .eq('booking_id', bookingId);
 
-    if (paymentError) throw paymentError;
+    if (paymentError) {
+      const message = String((paymentError as any)?.message || '');
+      const isMissingPaymentsTable = message.includes("Could not find the table 'public.payments'");
+      if (!isMissingPaymentsTable) {
+        throw paymentError;
+      } else {
+        console.warn('Tabela payments ausente ao atualizar pagamento. Atualização ignorada.');
+      }
+    }
   },
 
   async cancelBooking(id: string) {
@@ -176,13 +230,35 @@ export const bookingsService = {
       .from('bookings')
       .select(`
         *,
-        route:routes(*),
-        user:profiles(*)
+        route:routes(*)
       `)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data as Booking[];
+
+    const bookings = (data || []) as any[];
+    const userIds = Array.from(new Set(bookings.map((b: any) => b?.user_id).filter(Boolean)));
+
+    let profilesById: Record<string, any> = {};
+    if (userIds.length) {
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id,name,email')
+        .in('id', userIds);
+      if (!profilesError && profiles) {
+        profilesById = (profiles as any[]).reduce((acc: Record<string, any>, p: any) => {
+          acc[p.id] = p;
+          return acc;
+        }, {} as Record<string, any>);
+      }
+    }
+
+    const enriched = bookings.map((b: any) => ({
+      ...b,
+      user: profilesById[b.user_id] || null,
+    }));
+
+    return enriched as Booking[];
   },
 
   async getBookingStats() {

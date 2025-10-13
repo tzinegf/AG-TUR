@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { bookingsService } from '../../services/bookings';
+import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
@@ -44,18 +46,82 @@ export default function HomeScreen() {
     loadUserStats();
   }, []);
 
-  const loadUserStats = () => {
-    // Simulate API call to get user statistics
-    setTimeout(() => {
-      setUserStats({
-        totalTrips: 12,
-        totalSpent: 1450.80,
-        favoriteDestination: 'Rio de Janeiro',
-        memberSince: 'Janeiro 2023',
-        upcomingTrips: 2,
-        loyaltyPoints: 850
+  const loadUserStats = async () => {
+    try {
+      const bookings = await bookingsService.getUserBookings();
+      const now = new Date();
+      let upcomingTrips = 0;
+
+      (bookings || []).forEach((b: any) => {
+        const route = b?.route || {};
+        const departureRaw = route?.departure_time || (route as any)?.departure;
+        const parsedDeparture = departureRaw ? new Date(departureRaw as string) : null;
+        const departure: Date | null = (parsedDeparture && !isNaN(parsedDeparture.getTime())) ? parsedDeparture : null;
+        const isCancelled = b.status === 'cancelled';
+        const isCompleted = b.payment_status === 'completed' || b.payment_status === 'paid' || b.status === 'used' || b.status === 'completed';
+        const statusOk = b.payment_status === 'pending' || b.payment_status === 'completed' || b.payment_status === 'paid' || b.status === 'confirmed' || b.status === 'active';
+        const isUpcoming = departure ? (departure >= now && !isCancelled) : (!isCancelled && statusOk && !isCompleted);
+        if (isUpcoming && statusOk) upcomingTrips++;
       });
-    }, 500);
+
+      const totalTrips = (bookings || []).filter((b: any) => b.status !== 'cancelled').length;
+
+      // Calcular Gastos (reservas pagas) e Destino Favorito
+      let totalSpent = 0;
+      const destCount: Record<string, number> = {};
+      (bookings || []).forEach((b: any) => {
+        const paid = b?.payment_status === 'completed' || b?.payment_status === 'paid';
+        if (paid && typeof b?.total_price === 'number') {
+          totalSpent += b.total_price;
+        }
+        const destination = (b?.route?.destination) || (b as any)?.destination || '';
+        if (destination) {
+          destCount[destination] = (destCount[destination] || 0) + 1;
+        }
+      });
+
+      const favoriteDestination = Object.entries(destCount)
+        .sort((a, b) => b[1] - a[1])
+        .map(([dest]) => dest)[0] || '';
+
+      // Pontos de fidelidade (ex.: 1 ponto por R$10 gastos)
+      const loyaltyPoints = Math.floor(totalSpent / 10);
+
+      // "Membro desde" a partir do perfil
+      let memberSince = '';
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const userId = authUser?.id;
+        if (userId) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('created_at')
+            .eq('id', userId)
+            .single();
+          const createdAt = (profile as any)?.created_at;
+          if (createdAt) {
+            const dt = new Date(createdAt);
+            if (!isNaN(dt.getTime())) {
+              memberSince = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(dt);
+            }
+          }
+        }
+      } catch (e) {
+        // Mantém vazio se falhar
+      }
+
+      setUserStats((prev) => ({
+        ...prev,
+        totalTrips,
+        upcomingTrips,
+        totalSpent,
+        favoriteDestination,
+        loyaltyPoints,
+        memberSince,
+      }));
+    } catch (err) {
+      console.warn('Falha ao carregar estatísticas de viagens. Mantendo valores padrão.', err);
+    }
   };
 
   const loadPopularRoutes = () => {
@@ -285,7 +351,7 @@ export default function HomeScreen() {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity style={styles.upcomingTripsButton}>
+              <TouchableOpacity style={styles.upcomingTripsButton} onPress={() => router.push('/(tabs)/tickets')}>
                 <Text style={styles.upcomingTripsButtonText}>Ver</Text>
                 <Ionicons name="arrow-forward" size={16} color="#059669" />
               </TouchableOpacity>

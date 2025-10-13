@@ -2,8 +2,14 @@ import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://flxqngznhmdrvzoqdjtw.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZseHFuZ3puaG1kcnZ6b3FkanR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5ODE4ODQsImV4cCI6MjA3MzU1Nzg4NH0.Uf_kCuMA5oVlzJZlfXg9HD3zLZMUjq0Og0NvZWIpD4A';
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL as string;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn(
+    '[Supabase] Variáveis de ambiente ausentes: EXPO_PUBLIC_SUPABASE_URL ou EXPO_PUBLIC_SUPABASE_ANON_KEY.'
+  );
+}
 
 // Use different storage for web and native
 const storage = Platform.OS === 'web' ? undefined : AsyncStorage;

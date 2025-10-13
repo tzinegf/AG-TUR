@@ -62,6 +62,7 @@ export default function AuthScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Ionicons name="bus" size={80} color="#DC2626" />
+          <Image source={require('../../../assets/agturlogo.png')} style={styles.logo} />
           <Text style={styles.title}>AG Tur</Text>
           <Text style={styles.subtitle}>
             {isLogin ? 'Faça login em sua conta' : 'Crie sua conta'}

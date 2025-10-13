@@ -1,53 +1,116 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
+import { bookingsService } from '../../services/bookings';
+import { useRouter } from 'expo-router';
 
 export default function TicketsScreen() {
-  const [activeTab, setActiveTab] = useState('upcoming');
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const router = useRouter();
 
-  const upcomingTickets = [
-    {
-      id: '1',
-      from: 'São Paulo',
-      to: 'Rio de Janeiro',
-      date: '2025-01-20',
-      time: '14:30',
-      seat: '15A',
-      price: 'R$ 89,90',
-      status: 'confirmed',
-      busNumber: 'AG001',
-      platform: '3',
-    },
-    {
-      id: '2',
-      from: 'Brasília',
-      to: 'Goiânia',
-      date: '2025-01-25',
-      time: '08:00',
-      seat: '12B',
-      price: 'R$ 45,90',
-      status: 'confirmed',
-      busNumber: 'AG015',
-      platform: '1',
-    },
-  ];
+  const loadBookings = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await bookingsService.getUserBookings();
+      setBookings(data || []);
+    } catch (err: any) {
+      console.error('Erro ao carregar reservas:', err);
+      setError(err?.message || 'Não foi possível carregar suas passagens');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const pastTickets = [
-    {
-      id: '3',
-      from: 'Belo Horizonte',
-      to: 'Salvador',
-      date: '2024-12-15',
-      time: '22:00',
-      seat: '08C',
-      price: 'R$ 129,90',
-      status: 'completed',
-      busNumber: 'AG008',
-      platform: '2',
-    },
-  ];
+  useEffect(() => {
+    loadBookings();
+  }, [loadBookings]);
+
+  const formatCurrency = (value?: number) => {
+    if (typeof value !== 'number') return '-';
+    try {
+      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    } catch {
+      return `R$ ${value.toFixed(2)}`;
+    }
+  };
+
+  const splitByTime = useMemo(() => {
+    const now = new Date();
+    const upcoming: any[] = [];
+    const past: any[] = [];
+
+    (bookings || []).forEach((b) => {
+      const route = (b as any).route || {};
+      const departureRaw = route?.departure_time || (route as any)?.departure;
+      const parsedDeparture = departureRaw ? new Date(departureRaw as string) : null;
+      const departure: Date | null = (parsedDeparture && !isNaN(parsedDeparture.getTime())) ? parsedDeparture : null;
+      const parsedCreated = b?.created_at ? new Date(b.created_at) : null;
+      const createdAt: Date | null = (parsedCreated && !isNaN(parsedCreated.getTime())) ? parsedCreated : null;
+      const isCancelled = b.status === 'cancelled';
+      const isCompleted = b.payment_status === 'completed' || b.status === 'used' || b.status === 'completed';
+      const isPast = departure ? (departure < now || isCompleted || isCancelled) : (isCompleted || isCancelled);
+      const safeDate: Date = departure || createdAt || now;
+      const ticket = {
+        id: b.id,
+        from: route?.origin || 'Origem',
+        to: route?.destination || 'Destino',
+        date: safeDate.toISOString(),
+        time: departure ? departure.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '',
+        seat: Array.isArray((b as any).seats)
+          ? (b as any).seats.join(', ')
+          : Array.isArray((b as any).seat_numbers)
+            ? (b as any).seat_numbers.join(', ')
+            : (b as any).seat_number || '-',
+        price: formatCurrency(b.total_price),
+        status: isCancelled
+          ? 'cancelled'
+          : (b.payment_status === 'pending' || b.status === 'active'
+            ? 'pending'
+            : (b.payment_status === 'completed' ? 'completed' : 'confirmed')),
+        busNumber: route?.bus_id || '',
+        platform: route?.platform || '',
+        qr_code: b.qr_code,
+      };
+
+      if (isPast) past.push(ticket);
+      else upcoming.push(ticket);
+    });
+
+    // Ordenar: próximas por data ascendente; histórico por data descendente
+    upcoming.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    past.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Filtrar próximas apenas com status agendado (pendente ou confirmado)
+    const upcomingScheduled = upcoming.filter((t) => t.status === 'pending' || t.status === 'confirmed');
+
+    return { upcoming: upcomingScheduled, past };
+  }, [bookings]);
+
+  const handleCancel = async (ticket: any) => {
+    try {
+      Alert.alert('Cancelar passagem', 'Tem certeza que deseja cancelar esta passagem?', [
+        { text: 'Não', style: 'cancel' },
+        {
+          text: 'Sim',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await bookingsService.cancelBooking(ticket.id);
+              await loadBookings();
+            } catch (err: any) {
+              Alert.alert('Erro', err?.message || 'Não foi possível cancelar a passagem');
+            }
+          },
+        },
+      ]);
+    } catch {}
+  };
 
   const renderTicket = (ticket: any) => (
     <View key={ticket.id} style={styles.ticketCard}>
@@ -65,10 +128,17 @@ export default function TicketsScreen() {
         <View style={styles.statusContainer}>
           <View style={[styles.statusBadge, 
             ticket.status === 'confirmed' && styles.confirmedBadge,
-            ticket.status === 'completed' && styles.completedBadge
+            ticket.status === 'completed' && styles.completedBadge,
+            ticket.status === 'pending' && styles.pendingBadge,
           ]}>
             <Text style={styles.statusText}>
-              {ticket.status === 'confirmed' ? 'Confirmado' : 'Concluído'}
+              {ticket.status === 'confirmed' 
+                ? 'Confirmado' 
+                : ticket.status === 'completed' 
+                  ? 'Concluído' 
+                  : ticket.status === 'pending' 
+                    ? 'Pendente' 
+                    : 'Cancelado'}
             </Text>
           </View>
         </View>
@@ -116,10 +186,10 @@ export default function TicketsScreen() {
           </View>
         </View>
 
-        {ticket.status === 'confirmed' && (
+        {ticket.status === 'completed' && (
           <View style={styles.qrCodeContainer}>
             <QRCode
-              value={`AG-TUR-${ticket.id}-${ticket.date}-${ticket.seat}`}
+              value={ticket.qr_code || `AG-TUR-${ticket.id}-${ticket.date}-${ticket.seat}`}
               size={80}
               color="#1F2937"
               backgroundColor="#FFFFFF"
@@ -134,10 +204,16 @@ export default function TicketsScreen() {
           <Ionicons name="download" size={20} color="#DC2626" />
           <Text style={styles.actionButtonText}>Baixar PDF</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity style={styles.actionButton} onPress={() => {}}>
           <Ionicons name="share" size={20} color="#DC2626" />
           <Text style={styles.actionButtonText}>Compartilhar</Text>
         </TouchableOpacity>
+        {(ticket.status === 'confirmed' || ticket.status === 'pending') && (
+          <TouchableOpacity style={styles.actionButton} onPress={() => handleCancel(ticket)}>
+            <Ionicons name="close-circle" size={20} color="#DC2626" />
+            <Text style={styles.actionButtonText}>Cancelar</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -171,36 +247,54 @@ export default function TicketsScreen() {
       </View>
 
       {/* Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {activeTab === 'upcoming' ? (
-          upcomingTickets.length > 0 ? (
-            upcomingTickets.map(renderTicket)
+      {loading ? (
+        <View style={[styles.content, { alignItems: 'center' }]}>
+          <ActivityIndicator size="large" color="#DC2626" />
+          <Text style={{ marginTop: 12, color: '#6B7280' }}>Carregando suas passagens...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.content}>
+          <View style={styles.emptyState}>
+            <Ionicons name="warning-outline" size={64} color="#9CA3AF" />
+            <Text style={styles.emptyTitle}>Algo deu errado</Text>
+            <Text style={styles.emptySubtitle}>{error}</Text>
+            <TouchableOpacity style={styles.emptyButton} onPress={loadBookings}>
+              <Text style={styles.emptyButtonText}>Tentar novamente</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {activeTab === 'upcoming' ? (
+            splitByTime.upcoming.length > 0 ? (
+              splitByTime.upcoming.map(renderTicket)
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="ticket-outline" size={64} color="#9CA3AF" />
+                <Text style={styles.emptyTitle}>Nenhuma viagem agendada</Text>
+                <Text style={styles.emptySubtitle}>
+                  Que tal planejar sua próxima aventura?
+                </Text>
+                <TouchableOpacity style={styles.emptyButton} onPress={() => router.push('/(tabs)/search') }>
+                  <Text style={styles.emptyButtonText}>Buscar Passagens</Text>
+                </TouchableOpacity>
+              </View>
+            )
           ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="ticket-outline" size={64} color="#9CA3AF" />
-              <Text style={styles.emptyTitle}>Nenhuma viagem agendada</Text>
-              <Text style={styles.emptySubtitle}>
-                Que tal planejar sua próxima aventura?
-              </Text>
-              <TouchableOpacity style={styles.emptyButton}>
-                <Text style={styles.emptyButtonText}>Buscar Passagens</Text>
-              </TouchableOpacity>
-            </View>
-          )
-        ) : (
-          pastTickets.length > 0 ? (
-            pastTickets.map(renderTicket)
-          ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="time-outline" size={64} color="#9CA3AF" />
-              <Text style={styles.emptyTitle}>Nenhuma viagem anterior</Text>
-              <Text style={styles.emptySubtitle}>
-                Suas viagens passadas aparecerão aqui
-              </Text>
-            </View>
-          )
-        )}
-      </ScrollView>
+            splitByTime.past.length > 0 ? (
+              splitByTime.past.map(renderTicket)
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="time-outline" size={64} color="#9CA3AF" />
+                <Text style={styles.emptyTitle}>Nenhuma viagem anterior</Text>
+                <Text style={styles.emptySubtitle}>
+                  Suas viagens passadas aparecerão aqui
+                </Text>
+              </View>
+            )
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -297,6 +391,9 @@ const styles = StyleSheet.create({
   },
   completedBadge: {
     backgroundColor: 'rgba(107, 114, 128, 0.2)',
+  },
+  pendingBadge: {
+    backgroundColor: 'rgba(234, 179, 8, 0.2)',
   },
   statusText: {
     fontSize: 12,

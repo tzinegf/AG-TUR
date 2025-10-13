@@ -14,6 +14,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Picker } from '@react-native-picker/picker';
+import { bookingsService } from '../../services/bookings';
+import { supabase } from '../../lib/supabase';
 
 interface Booking {
   id: string;
@@ -35,62 +37,7 @@ interface Booking {
 }
 
 export default function AdminBookings() {
-  const [bookings, setBookings] = useState<Booking[]>([
-    {
-      id: '1',
-      bookingCode: 'AG2024001',
-      userId: '1',
-      userName: 'João Silva',
-      userEmail: 'joao.silva@email.com',
-      routeId: '1',
-      routeName: 'São Paulo - Rio de Janeiro',
-      busId: '1',
-      busPlate: 'ABC-1234',
-      seatNumber: '12A',
-      departureDate: '2024-01-20',
-      departureTime: '08:00',
-      price: 120.00,
-      status: 'confirmed',
-      paymentStatus: 'paid',
-      createdAt: '2024-01-15T10:30:00',
-    },
-    {
-      id: '2',
-      bookingCode: 'AG2024002',
-      userId: '2',
-      userName: 'Maria Santos',
-      userEmail: 'maria.santos@email.com',
-      routeId: '2',
-      routeName: 'Belo Horizonte - Brasília',
-      busId: '2',
-      busPlate: 'DEF-5678',
-      seatNumber: '08B',
-      departureDate: '2024-01-21',
-      departureTime: '14:30',
-      price: 180.00,
-      status: 'pending',
-      paymentStatus: 'pending',
-      createdAt: '2024-01-15T14:45:00',
-    },
-    {
-      id: '3',
-      bookingCode: 'AG2024003',
-      userId: '3',
-      userName: 'Pedro Oliveira',
-      userEmail: 'pedro.oliveira@email.com',
-      routeId: '3',
-      routeName: 'Salvador - Recife',
-      busId: '3',
-      busPlate: 'GHI-9012',
-      seatNumber: '15A',
-      departureDate: '2024-01-19',
-      departureTime: '22:00',
-      price: 95.00,
-      status: 'cancelled',
-      paymentStatus: 'refunded',
-      createdAt: '2024-01-14T16:20:00',
-    },
-  ]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'confirmed' | 'pending' | 'cancelled'>('all');
@@ -101,7 +48,57 @@ export default function AdminBookings() {
 
   useEffect(() => {
     console.log('Usuário acessou a página: Reservas Administrativas');
+    loadBookings();
   }, []);
+
+  const loadBookings = async () => {
+    try {
+      const all = await bookingsService.getAllBookings();
+      const mapped = (all as any[]).map((row: any) => {
+        const route = row?.route || {};
+        const user = row?.user || {};
+        const departureRaw = route?.departure_time || (route as any)?.departure;
+        let departureDate = '';
+        let departureTime = '';
+        if (departureRaw) {
+          const dt = new Date(departureRaw);
+          if (!isNaN(dt.getTime())) {
+            departureDate = dt.toISOString().split('T')[0];
+            const hh = String(dt.getHours()).padStart(2, '0');
+            const mm = String(dt.getMinutes()).padStart(2, '0');
+            departureTime = `${hh}:${mm}`;
+          }
+        }
+        const seatsArr = (row?.seat_numbers || row?.seats || []) as string[];
+        const seatNumber = Array.isArray(seatsArr) ? seatsArr.join(', ') : (row?.seat_number || '');
+        const paymentStatusRaw = row?.payment_status;
+        const paymentStatus: Booking['paymentStatus'] = (paymentStatusRaw === 'completed') ? 'paid' : (paymentStatusRaw || 'pending');
+        const routeName = (route?.origin && route?.destination) ? `${route.origin} - ${route.destination}` : (route?.name || '—');
+        return {
+          id: row?.id,
+          bookingCode: row?.id || '—',
+          userId: row?.user_id,
+          userName: user?.name || '—',
+          userEmail: user?.email || '—',
+          routeId: row?.route_id,
+          routeName,
+          busId: '',
+          busPlate: '',
+          seatNumber,
+          departureDate,
+          departureTime,
+          price: typeof row?.total_price === 'number' ? row.total_price : 0,
+          status: (row?.status || 'pending'),
+          paymentStatus,
+          createdAt: row?.created_at || '',
+        } as Booking;
+      });
+      setBookings(mapped);
+    } catch (error) {
+      console.error('Erro ao carregar reservas do Supabase:', error);
+      Alert.alert('Erro', 'Não foi possível carregar as reservas do banco.');
+    }
+  };
 
   const filteredBookings = bookings.filter(booking => {
     const matchesSearch = 
@@ -118,7 +115,7 @@ export default function AdminBookings() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await loadBookings();
     setRefreshing(false);
   };
 
@@ -137,14 +134,22 @@ export default function AdminBookings() {
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Confirmar',
-          onPress: () => {
-            setBookings(bookings.map(booking =>
-              booking.id === selectedBooking.id
-                ? { ...booking, status: newStatus }
-                : booking
-            ));
-            setModalVisible(false);
-            Alert.alert('Sucesso', 'Status da reserva atualizado!');
+          onPress: async () => {
+            try {
+              await supabase
+                .from('bookings')
+                .update({ status: newStatus })
+                .eq('id', selectedBooking.id);
+              setBookings(bookings.map(booking =>
+                booking.id === selectedBooking.id
+                  ? { ...booking, status: newStatus }
+                  : booking
+              ));
+              setModalVisible(false);
+              Alert.alert('Sucesso', 'Status da reserva atualizado!');
+            } catch (e) {
+              Alert.alert('Erro', 'Falha ao atualizar o status no banco.');
+            }
           },
         },
       ]
@@ -161,14 +166,22 @@ export default function AdminBookings() {
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Confirmar',
-          onPress: () => {
-            setBookings(bookings.map(booking =>
-              booking.id === selectedBooking.id
-                ? { ...booking, paymentStatus: newPaymentStatus }
-                : booking
-            ));
-            setModalVisible(false);
-            Alert.alert('Sucesso', 'Status do pagamento atualizado!');
+          onPress: async () => {
+            try {
+              await supabase
+                .from('bookings')
+                .update({ payment_status: newPaymentStatus === 'paid' ? 'paid' : newPaymentStatus })
+                .eq('id', selectedBooking.id);
+              setBookings(bookings.map(booking =>
+                booking.id === selectedBooking.id
+                  ? { ...booking, paymentStatus: newPaymentStatus }
+                  : booking
+              ));
+              setModalVisible(false);
+              Alert.alert('Sucesso', 'Status do pagamento atualizado!');
+            } catch (e) {
+              Alert.alert('Erro', 'Falha ao atualizar o pagamento no banco.');
+            }
           },
         },
       ]
@@ -193,6 +206,18 @@ export default function AdminBookings() {
     }
   };
 
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR');
+  };
+
+  const formatDateTime = (dateStr: string) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleString('pt-BR');
+  };
+
   const getPaymentLabel = (status: string) => {
     switch (status) {
       case 'paid': return 'Pago';
@@ -205,12 +230,11 @@ export default function AdminBookings() {
   const renderBookingItem = ({ item }: { item: Booking }) => (
     <TouchableOpacity style={styles.bookingCard} onPress={() => handleViewBooking(item)}>
       <View style={styles.bookingHeader}>
-        <Text style={styles.bookingCode}>{item.bookingCode}</Text>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
           <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
         </View>
       </View>
-      
+
       <View style={styles.bookingInfo}>
         <View style={styles.infoRow}>
           <Ionicons name="person" size={16} color="#6B7280" />
@@ -225,7 +249,7 @@ export default function AdminBookings() {
         <View style={styles.infoRow}>
           <Ionicons name="calendar" size={16} color="#6B7280" />
           <Text style={styles.infoText}>
-            {new Date(item.departureDate).toLocaleDateString('pt-BR')} às {item.departureTime}
+            {formatDate(item.departureDate)}{item.departureTime ? ` às ${item.departureTime}` : ''}
           </Text>
         </View>
         
@@ -345,9 +369,7 @@ export default function AdminBookings() {
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Criada em:</Text>
-                    <Text style={styles.detailValue}>
-                      {new Date(selectedBooking.createdAt).toLocaleString('pt-BR')}
-                    </Text>
+                    <Text style={styles.detailValue}>{formatDateTime(selectedBooking.createdAt)}</Text>
                   </View>
                 </View>
 
@@ -380,7 +402,7 @@ export default function AdminBookings() {
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Data/Hora:</Text>
                     <Text style={styles.detailValue}>
-                      {new Date(selectedBooking.departureDate).toLocaleDateString('pt-BR')} às {selectedBooking.departureTime}
+                      {formatDate(selectedBooking.departureDate)}{selectedBooking.departureTime ? ` às ${selectedBooking.departureTime}` : ''}
                     </Text>
                   </View>
                 </View>
