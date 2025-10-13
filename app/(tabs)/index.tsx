@@ -276,29 +276,15 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>Olá, {user?.name || 'Viajante'}!</Text>
             <Text style={styles.subGreeting}>Para onde vamos hoje?</Text>
           </View>
-          <TouchableOpacity style={styles.profileButton}>
+          <TouchableOpacity style={styles.profileButton} onPress={() => router.push('/(tabs)/profile')}>
             <Ionicons name="person-circle" size={40} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </LinearGradient>
 
       {/* User Data Section */}
-      <View style={styles.userDataSection}>
-        <View style={styles.userInfoCard}>
-          <View style={styles.userInfoHeader}>
-            <View style={styles.userAvatarContainer}>
-              <Ionicons name="person" size={32} color="#FFFFFF" />
-            </View>
-            <View style={styles.userInfoText}>
-              <Text style={styles.userName}>{user?.name || 'Usuário'}</Text>
-              <Text style={styles.userEmail}>{user?.email || 'email@exemplo.com'}</Text>
-              <Text style={styles.memberSince}>Membro desde {userStats.memberSince}</Text>
-            </View>
-            <TouchableOpacity style={styles.editProfileButton}>
-              <Ionicons name="pencil" size={16} color="#DC2626" />
-            </TouchableOpacity>
-          </View>
-        </View>
+      <View style={styles.section}>
+        <Text style={styles.activities}>Atividades</Text>
 
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
@@ -600,6 +586,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#1F2937',
+  },
+   
+  activities: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    paddingBottom:20
   },
   sectionSubtitle: {
     fontSize: 14,
