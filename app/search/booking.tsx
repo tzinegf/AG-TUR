@@ -15,12 +15,14 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
+import { userService } from '../../services/userService';
 import { busRoutesService } from '../../services/busRoutes';
 import { bookingsService } from '../../services/bookings';
 import { seatsService, Seat } from '../../services/seats';
 import { BusRoute } from '../../lib/supabase';
 import { format, parseISO } from 'date-fns';
 import { mask } from 'react-native-mask-text';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Passenger {
   name: string;
@@ -32,6 +34,7 @@ interface Passenger {
 export default function BookingScreen() {
   const { user } = useAuth();
   const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
   
   // 🚨 DEBUG: Log básico do componente
   console.log('🎬 DEBUG: BookingScreen component loaded');
@@ -106,13 +109,38 @@ export default function BookingScreen() {
     const count = parseInt(passengerCount as string) || 1;
     console.log('👥 DEBUG: Passenger count:', count);
     const initialPassengers = Array.from({ length: count }, (_, index) => ({
-      name: '',
+      name: index === 0 ? (user?.name || '') : '',
       cpf: '',
-      email: index === 0 ? user?.email || '' : '',
-      phone: ''
+      email: index === 0 ? (user?.email || '') : '',
+      phone: index === 0 ? (user?.phone ? mask(user.phone, '(99) 99999-9999') : '') : ''
     }));
     setPassengerData(initialPassengers);
   }, [routeId, passengerCount, user]);
+
+  // Prefill from profiles if missing in auth metadata
+  useEffect(() => {
+    const prefillFromProfile = async () => {
+      try {
+        if (!user?.id) return;
+        // Only if first passenger has empty name or phone
+        const first = passengerData[0];
+        if (first && (!first.name || !first.phone)) {
+          const profile = await userService.getUserById(user.id);
+          const updated = [...passengerData];
+          updated[0] = {
+            ...first,
+            name: first.name || profile.name || '',
+            phone: first.phone || (profile.phone ? mask(profile.phone, '(99) 99999-9999') : ''),
+          };
+          setPassengerData(updated);
+        }
+      } catch (e) {
+        console.warn('Falha ao prefazer dados do perfil:', e);
+      }
+    };
+    prefillFromProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Early returns for loading and error states
   if (loading) {
@@ -293,7 +321,14 @@ export default function BookingScreen() {
   };
 
   const renderSeatSelection = () => (
-    <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.stepContent}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      contentInsetAdjustmentBehavior="automatic"
+      contentInset={{ bottom: insets.bottom }}
+      contentContainerStyle={{ paddingBottom: 24 }}
+    >
       <Text style={styles.stepTitle}>Selecione seus assentos</Text>
       <Text style={styles.stepSubtitle}>
         Escolha {passengerCount} assento(s) para sua viagem
@@ -385,7 +420,14 @@ export default function BookingScreen() {
   );
 
   const renderPassengerForm = () => (
-    <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.stepContent}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      contentInsetAdjustmentBehavior="automatic"
+      contentInset={{ bottom: insets.bottom }}
+      contentContainerStyle={{ paddingBottom: 24 }}
+    >
       <Text style={styles.stepTitle}>Dados dos passageiros</Text>
       <Text style={styles.stepSubtitle}>
         Preencha os dados de todos os passageiros
@@ -478,7 +520,14 @@ export default function BookingScreen() {
   }
 
   const renderPayment = () => (
-    <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.stepContent}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      contentInsetAdjustmentBehavior="automatic"
+      contentInset={{ bottom: insets.bottom }}
+      contentContainerStyle={{ paddingBottom: 24 }}
+    >
       <Text style={styles.stepTitle}>Pagamento</Text>
       
       {/* Order Summary */}
@@ -753,7 +802,7 @@ export default function BookingScreen() {
       </>
 
       {/* Bottom Actions */}
-      <View style={styles.bottomActions}>
+      <View style={[styles.bottomActions, { paddingBottom: 20 + insets.bottom }]}>
         {currentStep > 1 && (
           <TouchableOpacity
             style={styles.backStepButton}

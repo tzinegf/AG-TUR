@@ -5,8 +5,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
 import { bookingsService } from '../../services/bookings';
 import { useRouter } from 'expo-router';
+import { useColorScheme } from 'react-native';
+import { Colors } from '../../constants/Colors';
 
 export default function TicketsScreen() {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +96,18 @@ export default function TicketsScreen() {
     return { upcoming: upcomingScheduled, past };
   }, [bookings]);
 
+  const formatDate = (value: string | Date | undefined) => {
+    if (!value) return '—';
+    const d = typeof value === 'string' ? new Date(value) : value;
+    const time = d.getTime();
+    if (isNaN(time)) return '—';
+    try {
+      return d.toLocaleDateString('pt-BR');
+    } catch {
+      return '—';
+    }
+  };
+
   const handleCancel = async (ticket: any) => {
     try {
       Alert.alert('Cancelar passagem', 'Tem certeza que deseja cancelar esta passagem?', [
@@ -115,7 +131,7 @@ export default function TicketsScreen() {
   const renderTicket = (ticket: any) => (
     <View key={ticket.id} style={styles.ticketCard}>
       <LinearGradient
-        colors={['#DC2626', '#7C3AED']}
+        colors={['#DC2626', '#B91C1C']}
         style={styles.ticketHeader}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
@@ -150,7 +166,7 @@ export default function TicketsScreen() {
             <View style={styles.detailItem}>
               <Ionicons name="calendar" size={16} color="#6B7280" />
               <Text style={styles.detailLabel}>Data</Text>
-              <Text style={styles.detailValue}>{new Date(ticket.date).toLocaleDateString('pt-BR')}</Text>
+              <Text style={styles.detailValue}>{formatDate(ticket.date)}</Text>
             </View>
             <View style={styles.detailItem}>
               <Ionicons name="time" size={16} color="#6B7280" />
@@ -221,10 +237,15 @@ export default function TicketsScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Minhas Passagens</Text>
-        <Text style={styles.subtitle}>Gerencie suas viagens</Text>
-      </View>
+      <LinearGradient
+        colors={['#DC2626', '#B91C1C']}
+        style={styles.headerGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+      >
+        <Text style={styles.headerTitle}>Minhas Passagens</Text>
+        <Text style={styles.headerSubtitle}>Gerencie suas viagens</Text>
+      </LinearGradient>
 
       {/* Tabs */}
       <View style={styles.tabContainer}>
@@ -303,6 +324,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  headerGradient: {
+    paddingTop: 60,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.85)',
+    textAlign: 'center',
   },
   header: {
     backgroundColor: '#FFFFFF',

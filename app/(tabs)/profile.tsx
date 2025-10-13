@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -14,6 +14,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../contexts/AuthContext';
+import { userService } from '../../services/userService';
+import { supabase } from '../../lib/supabase';
+import { mask } from 'react-native-mask-text';
 import { router } from 'expo-router';
 
 export default function ProfileScreen() {
@@ -24,6 +27,16 @@ export default function ProfileScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(user?.name || '');
   const [editedPhone, setEditedPhone] = useState(user?.phone || '');
+
+  // refs para manter valores atuais sem causar re-render
+  const nameRef = useRef<string>(editedName);
+  const phoneRef = useRef<string>(editedPhone);
+
+  const onlyDigits = (s: string) => (s || '').replace(/\D/g, '');
+  const isValidPhoneBR = (s: string) => {
+    const d = onlyDigits(s);
+    return d.length === 10 || d.length === 11; // fixo (10) ou celular (11)
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -48,38 +61,97 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleSaveProfile = () => {
-    // TODO: Implement profile update functionality
-    setIsEditing(false);
-    Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
+  const handleSaveProfile = async (nameOverride?: string, phoneOverride?: string) => {
+    try {
+      if (!user?.id) {
+        Alert.alert('Erro', 'Usuário não autenticado.');
+        return;
+      }
+
+      const nameValue = (nameOverride ?? editedName)?.trim() || '';
+      const phoneValue = (phoneOverride ?? editedPhone)?.trim() || '';
+
+      // validação
+      if (!nameValue) {
+        Alert.alert('Validação', 'Nome não pode ser vazio.');
+        return;
+      }
+      if (!isValidPhoneBR(phoneValue)) {
+        Alert.alert('Validação', 'Telefone inválido. Use o formato (99) 99999-9999.');
+        return;
+      }
+
+      const payload: Partial<{ name: string; phone: string }> = {
+        name: nameValue,
+        phone: phoneValue,
+      };
+
+      await userService.updateUser(user.id, payload as any);
+
+      // Atualiza metadados do usuário para refletir no contexto quando possível
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            name: payload.name,
+            phone: payload.phone,
+          },
+        });
+      } catch (e) {
+        // Mesmo que falhe, já atualizamos o perfil
+        console.warn('Falha ao atualizar metadados de auth:', e);
+      }
+
+      setIsEditing(false);
+      Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar perfil:', error);
+      Alert.alert('Erro', 'Não foi possível atualizar seu perfil.');
+    }
   };
 
-  const ProfileItem = ({ icon, label, value, editable = false, onChangeText }: {
+  const ProfileItem = ({ icon, label, value, editable = false, keyboardType, onValueChange }: {
     icon: string;
     label: string;
     value: string;
     editable?: boolean;
-    onChangeText?: (text: string) => void;
-  }) => (
-    <View style={styles.profileItem}>
-      <View style={styles.profileItemIcon}>
-        <Ionicons name={icon as any} size={20} color="#DC2626" />
+    keyboardType?: any;
+    onValueChange?: (text: string) => void; // atualiza ref sem re-render do pai
+  }) => {
+    const [localValue, setLocalValue] = useState(value || '');
+
+    useEffect(() => {
+      setLocalValue(value || '');
+    }, [value]);
+
+    const handleChange = (text: string) => {
+      const newText = keyboardType === 'phone-pad' ? mask(text, '(99) 99999-9999') : text;
+      setLocalValue(newText);
+      onValueChange?.(newText);
+    };
+
+    return (
+      <View style={styles.profileItem}>
+        <View style={styles.profileItemIcon}>
+          <Ionicons name={icon as any} size={20} color="#DC2626" />
+        </View>
+        <View style={styles.profileItemContent}>
+          <Text style={styles.profileItemLabel}>{label}</Text>
+          {editable && isEditing ? (
+            <TextInput
+              style={styles.profileItemInput}
+              value={localValue}
+              onChangeText={handleChange}
+              keyboardType={keyboardType}
+              placeholder={`Digite seu ${label.toLowerCase()}`}
+              blurOnSubmit={false}
+            />
+          ) : (
+            <Text style={styles.profileItemValue}>{value || 'Não informado'}</Text>
+          )}
+        </View>
       </View>
-      <View style={styles.profileItemContent}>
-        <Text style={styles.profileItemLabel}>{label}</Text>
-        {editable && isEditing ? (
-          <TextInput
-            style={styles.profileItemInput}
-            value={value}
-            onChangeText={onChangeText}
-            placeholder={`Digite seu ${label.toLowerCase()}`}
-          />
-        ) : (
-          <Text style={styles.profileItemValue}>{value || 'Não informado'}</Text>
-        )}
-      </View>
-    </View>
-  );
+    );
+  };
 
   const MenuOption = ({ icon, title, subtitle, onPress, danger = false }: {
     icon: string;
@@ -125,22 +197,17 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.userInfo}>
               <Text style={styles.userName}>
-                {user?.name || 'Usuário'}
+                {editedName || user?.name || 'Usuário'}
               </Text>
               <Text style={styles.userEmail}>{user?.email}</Text>
-              <View style={styles.memberBadge}>
-                <Ionicons name="star" size={12} color="#FFFFFF" />
-                <Text style={styles.memberText}>Membro Premium</Text>
-              </View>
+              
             </View>
           </View>
-          <TouchableOpacity style={styles.settingsButton}>
-            <Ionicons name="settings-outline" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          
         </View>
       </LinearGradient>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={[styles.section, { backgroundColor: '#FFFFFF' }]}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: '#1F2937' }]}>
@@ -149,7 +216,12 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 onPress={() => {
                   if (isEditing) {
-                    handleSaveProfile();
+                    // atualiza estados com os valores atuais dos inputs sem reatividade durante digitação
+                    const nameCurrent = nameRef.current ?? '';
+                    const phoneCurrent = phoneRef.current ?? '';
+                    setEditedName(nameCurrent);
+                    setEditedPhone(phoneCurrent);
+                    handleSaveProfile(nameCurrent, phoneCurrent);
                   } else {
                     setIsEditing(true);
                   }
@@ -166,13 +238,20 @@ export default function ProfileScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+            
 
+  
+            {/* refs para valores enquanto edita sem re-render do pai */}
+            {/* atualizados via onValueChange */}
+            
+            
+            
             <ProfileItem
               icon="person-outline"
               label="Nome"
               value={editedName}
               editable={true}
-              onChangeText={setEditedName}
+              onValueChange={(text) => { nameRef.current = text; }}
             />
             <ProfileItem
               icon="mail-outline"
@@ -184,7 +263,8 @@ export default function ProfileScreen() {
               label="Telefone"
               value={editedPhone}
               editable={true}
-              onChangeText={setEditedPhone}
+              keyboardType="phone-pad"
+              onValueChange={(text) => { phoneRef.current = text; }}
             />
           </View>
 
